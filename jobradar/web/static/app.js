@@ -248,11 +248,11 @@ function renderJobCard(job, index) {
       ${chips.length > 0 ? `<div class="breakdown-chips">${chips.join('')}</div>` : ''}
 
       <div class="card-actions">
-        <button class="btn btn-ghost" style="font-size: 0.8rem; padding: 0.4rem 0.8rem;" onclick="showBreakdownModal(${JSON.stringify(job).replace(/"/g, '&quot;')})">
-          📊 Inspect Breakdown
+        <button class="btn-inspect" onclick="showBreakdownModal(${JSON.stringify(job).replace(/"/g, '&quot;')})">
+          📊 Breakdown
         </button>
         <a href="${escapeHtml(job.url)}" target="_blank" rel="noopener noreferrer" class="apply-link">
-          Apply on ${escapeHtml(formatSourceName(job.source))} ↗
+          Apply on ${escapeHtml(formatSourceName(job.source))} →
         </a>
       </div>
     </div>
@@ -266,37 +266,37 @@ function showBreakdownModal(job) {
   if (!modal || !title || !content) return;
 
   const b = job.breakdown || {};
-  title.textContent = `${job.title} (${job.company})`;
+  title.textContent = `${job.title} · ${job.company}`;
 
   content.innerHTML = `
-    <div style="margin-bottom: 1.5rem;">
-      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; padding: 1rem; background: rgba(255,255,255,0.03); border-radius: var(--radius-md);">
+    <div style="margin-bottom: 1rem;">
+      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.25rem; padding: 1.2rem; background: var(--bg-subtle); border-radius: var(--radius-lg); border: 1px solid var(--border-light);">
         <div>
-          <div style="font-size: 0.8rem; color: var(--text-dim); text-transform: uppercase;">Best Matched Track</div>
-          <div style="font-size: 1.1rem; font-weight: 700; color: var(--accent-indigo);">${escapeHtml(b.best_track_name || 'General')}</div>
+          <div style="font-family: var(--font-mono); font-size: 0.725rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em;">Best Matched Track</div>
+          <div style="font-size: 1.15rem; font-weight: 800; color: var(--text-headline);">${escapeHtml(b.best_track_name || 'General')}</div>
         </div>
         <div style="text-align: right;">
-          <div style="font-size: 0.8rem; color: var(--text-dim); text-transform: uppercase;">Final Score</div>
-          <div style="font-size: 1.6rem; font-weight: 800; font-family: var(--font-mono); color: var(--accent-emerald);">${(b.final_score || job.final_score).toFixed(1)}</div>
+          <div style="font-family: var(--font-mono); font-size: 0.725rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em;">Match Score</div>
+          <div style="font-size: 1.75rem; font-weight: 800; font-family: var(--font-mono); color: var(--brand-green);">${(b.final_score || job.final_score).toFixed(1)}</div>
         </div>
       </div>
 
-      <h4 style="font-size: 0.9rem; margin-bottom: 0.5rem; color: var(--text-muted);">Scoring Calculation Breakdown:</h4>
-      <div style="background: rgba(0,0,0,0.4); border: 1px solid var(--bg-card-border); border-radius: var(--radius-md); padding: 1rem; font-family: var(--font-mono); font-size: 0.825rem; line-height: 1.8;">
-        <div>• Track Tech Score: <b style="color: #38bdf8;">+${(b.best_track_score || 0).toFixed(1)}</b></div>
-        <div>• Location Bonus: <b style="color: var(--accent-emerald);">+${(b.location_bonus || 0).toFixed(1)}</b> (${escapeHtml(job.location)})</div>
-        <div>• Seniority Bonus: <b style="color: var(--accent-emerald);">+${(b.seniority_bonus || 0).toFixed(1)}</b></div>
-        <div>• Penalties Deducted: <b style="color: var(--accent-rose);">${(b.penalties || 0).toFixed(1)}</b></div>
+      <h4 style="font-family: var(--font-mono); font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.6rem; color: var(--text-muted);">Scoring Calculation:</h4>
+      <div style="background: #FFFFFF; border: 1.5px solid var(--border-light); border-radius: var(--radius-md); padding: 1.1rem; font-family: var(--font-mono); font-size: 0.85rem; line-height: 2;">
+        <div>• Track Tech Score: <b style="color: var(--brand-green);">+${(b.best_track_score || 0).toFixed(1)}</b></div>
+        <div>• Location Bonus: <b style="color: var(--brand-green);">+${(b.location_bonus || 0).toFixed(1)}</b> (${escapeHtml(job.location)})</div>
+        <div>• Seniority Bonus: <b style="color: var(--brand-green);">+${(b.seniority_bonus || 0).toFixed(1)}</b></div>
+        <div>• Penalties Deducted: <b style="color: #DC2626;">-${(b.penalties || 0).toFixed(1)}</b></div>
       </div>
 
-      <h4 style="font-size: 0.9rem; margin: 1.25rem 0 0.5rem 0; color: var(--text-muted);">Matched Keywords:</h4>
+      <h4 style="font-family: var(--font-mono); font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; margin: 1.25rem 0 0.6rem 0; color: var(--text-muted);">Matched Keywords:</h4>
       <div style="display: flex; flex-wrap: wrap; gap: 0.5rem;">
-        ${(b.tech_matches || []).map(k => `<span class="chip pos" style="font-size: 0.8rem; padding: 0.25rem 0.65rem;">✓ ${escapeHtml(k)}</span>`).join('') || '<span style="color: var(--text-dim); font-size: 0.85rem;">None</span>'}
+        ${(b.tech_matches || []).map(k => `<span class="chip pos" style="font-size: 0.825rem; padding: 0.35rem 0.75rem;">✓ ${escapeHtml(k)}</span>`).join('') || '<span style="color: var(--text-dim); font-size: 0.85rem;">None</span>'}
       </div>
 
-      <div style="margin-top: 1.5rem; text-align: right;">
-        <a href="${escapeHtml(job.url)}" target="_blank" rel="noopener noreferrer" class="btn btn-primary" style="display: inline-flex;">
-          View Official Vacancy ↗
+      <div style="margin-top: 2rem; display: flex; justify-content: flex-end; gap: 0.75rem;">
+        <a href="${escapeHtml(job.url)}" target="_blank" rel="noopener noreferrer" class="btn btn-primary">
+          View Official Vacancy →
         </a>
       </div>
     </div>

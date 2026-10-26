@@ -19,23 +19,22 @@
   <header class="header">
     <div class="container header-content">
       <div class="logo-group">
-        <div class="logo-icon">📡</div>
+        <div class="logo-badge-icon">🎯</div>
         <div>
           <div style="display: flex; align-items: center; gap: 0.5rem;">
-            <h1 class="logo-title">JOB-RADAR</h1>
-            <span class="logo-badge">PRO v1.0</span>
+            <h1 class="logo-title">JobRadar</h1>
           </div>
-          <div style="font-size: 0.75rem; color: var(--text-dim);">Nairobi Banking, Big-4 & Remote Intelligence Hub</div>
+          <div class="logo-tagline">ATS Career Matcher · East Africa & Remote</div>
         </div>
       </div>
 
       <div class="header-actions">
         <div class="live-indicator">
           <div class="pulse-dot"></div>
-          <span>Cloud Ingestion Active (Every 3h)</span>
+          <span>Cloud Crawler Active (Every 3h)</span>
         </div>
 
-        <button id="refresh-btn" class="btn btn-ghost" title="Refresh local view">
+        <button id="refresh-btn" class="btn btn-outline" title="Refresh local view">
           🔄 Refresh
         </button>
 
@@ -57,7 +56,7 @@
       </div>
       <div class="stat-card" id="card-high-matches">
         <div class="stat-label">High Tech Matches (9.0+)</div>
-        <div class="stat-value emerald" id="stat-high-matches">--</div>
+        <div class="stat-value green" id="stat-high-matches">--</div>
       </div>
       <div class="stat-card" id="card-near-misses">
         <div class="stat-label">Near Misses (6.5 - 8.9)</div>
@@ -65,11 +64,11 @@
       </div>
       <div class="stat-card" id="card-active-sources">
         <div class="stat-label">Direct Corporate Portals</div>
-        <div class="stat-value cyan" id="stat-active-sources">--</div>
+        <div class="stat-value blue" id="stat-active-sources">--</div>
       </div>
       <div class="stat-card" id="card-avg-score">
         <div class="stat-label">Top 10 Match Quality</div>
-        <div class="stat-value indigo" id="stat-avg-score">--</div>
+        <div class="stat-value green" id="stat-avg-score">--</div>
       </div>
     </section>
 
