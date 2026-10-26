@@ -144,10 +144,16 @@ sources:
     enabled: true
 
   - id: "corporate_staffing"
-    name: "Corporate Staffing Kenya (WordPress Feed)"
-    type: "rss"
-    url: "https://www.corporatestaffing.co.ke/feed/"
+    name: "Corporate Staffing Kenya Vacancies"
+    type: "html"
+    url: "https://www.corporatestaffing.co.ke/jobs/"
     enabled: true
+    selectors:
+      item: "article, .job-listing, tr, li"
+      title: "h3, h4, a[href*='/job/']"
+      link: "a[href*='/job/']"
+      location: ".location"
+      description: "p, .summary"
 
   - id: "jobwebkenya"
     name: "JobWebKenya Feed"
@@ -219,13 +225,7 @@ sources:
     name: "Safaricom Careers"
     type: "html"
     url: "https://www.safaricom.co.ke/careers"
-    enabled: true
-    selectors:
-      item: ".job-item, .career-block, li"
-      title: "h3, h4, .job-title, a"
-      link: "a"
-      location: ".location"
-      description: "p"
+    enabled: false # Akamai bot protection returned HTTP 403
 
   - id: "kpmg_east_africa"
     name: "KPMG East Africa Careers"
@@ -308,4 +308,4 @@ sources:
 crawler:
   user_agent: "JobRadarBot/1.0 (+https://github.com/james/job-radar; ethical career crawler)"
   request_delay_seconds: 2.0
-  request_timeout_seconds: 15.0
+  request_timeout_seconds: 25.0

@@ -158,39 +158,68 @@ class PostgresRepository(BaseStorageRepository):
         now = datetime.now(timezone.utc)
         with self.pool.connection() as conn:
             with conn.cursor() as cursor:
+                # Check for existing listing by either canonical fingerprint OR URL
                 cursor.execute(
                     """
-                    INSERT INTO jobs (
-                        fingerprint, url, title, company, location, description,
-                        posted_at, deadline_at, source, raw_id, first_seen, last_seen, is_closed
-                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, FALSE)
-                    ON CONFLICT(fingerprint) DO UPDATE SET
-                        last_seen = EXCLUDED.last_seen,
-                        deadline_at = COALESCE(EXCLUDED.deadline_at, jobs.deadline_at),
-                        is_closed = FALSE
-                    RETURNING (xmax = 0) AS is_new, first_seen, last_seen;
+                    SELECT id, fingerprint, first_seen, last_seen
+                    FROM jobs
+                    WHERE fingerprint = %s OR url = %s
+                    LIMIT 1;
                     """,
-                    (
-                        job.fingerprint,
-                        job.url,
-                        job.title,
-                        job.company,
-                        job.location,
-                        job.description,
-                        job.posted,
-                        job.deadline,
-                        job.source,
-                        job.raw_id,
-                        job.first_seen,
-                        now,
-                    ),
+                    (job.fingerprint, job.url),
                 )
-                res = cursor.fetchone()
-                is_new = res["is_new"]
-                job.first_seen = res["first_seen"]
-                job.last_seen = res["last_seen"]
-            conn.commit()
-            return job, is_new
+                existing = cursor.fetchone()
+
+                if existing:
+                    # Update existing job: update last_seen, merge deadline, update description if richer
+                    cursor.execute(
+                        """
+                        UPDATE jobs
+                        SET last_seen = %s,
+                            deadline_at = COALESCE(%s, jobs.deadline_at),
+                            description = CASE WHEN length(%s) > length(jobs.description) THEN %s ELSE jobs.description END,
+                            is_closed = FALSE
+                        WHERE id = %s
+                        RETURNING first_seen, last_seen;
+                        """,
+                        (now, job.deadline, job.description, job.description, existing["id"]),
+                    )
+                    res = cursor.fetchone()
+                    job.fingerprint = existing["fingerprint"]
+                    job.first_seen = res["first_seen"]
+                    job.last_seen = res["last_seen"]
+                    conn.commit()
+                    return job, False
+                else:
+                    # Insert new job
+                    cursor.execute(
+                        """
+                        INSERT INTO jobs (
+                            fingerprint, url, title, company, location, description,
+                            posted_at, deadline_at, source, raw_id, first_seen, last_seen, is_closed
+                        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, FALSE)
+                        RETURNING first_seen, last_seen;
+                        """,
+                        (
+                            job.fingerprint,
+                            job.url,
+                            job.title,
+                            job.company,
+                            job.location,
+                            job.description,
+                            job.posted,
+                            job.deadline,
+                            job.source,
+                            job.raw_id,
+                            job.first_seen,
+                            now,
+                        ),
+                    )
+                    res = cursor.fetchone()
+                    job.first_seen = res["first_seen"]
+                    job.last_seen = res["last_seen"]
+                    conn.commit()
+                    return job, True
 
     def save_scored_match(self, scored_job: ScoredJob) -> None:
         breakdown_dict = scored_job.score_breakdown.model_dump()

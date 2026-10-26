@@ -29,8 +29,8 @@ def build_keyword_pattern(keyword: str) -> re.Pattern:
         return re.compile(r"(?:^|[^\w])asp\.net(?:[^\w]|$)", re.IGNORECASE)
     elif kw in ("m-pesa", "mpesa"):
         return re.compile(r"\bm-?pesa\b", re.IGNORECASE)
-    elif kw == "go":
-        return re.compile(r"\bgo\b", re.IGNORECASE)
+    elif kw in ("go", "golang"):
+        return re.compile(r"\b(?:golang|go(?:\s+(?:developer|engineer|backend|fullstack|stack|lang|programmer))?)\b", re.IGNORECASE)
     elif kw == "qa":
         return re.compile(r"\bqa\b", re.IGNORECASE)
     elif kw == "tax":
@@ -159,9 +159,10 @@ class JobScorer:
         raw_final = (best_track_score + location_bonus + seniority_bonus) - penalties
         final_score = max(0.0, round(raw_final, 2))
 
-        # 6. Match & Near-Miss Thresholds
-        is_match = final_score >= self.min_score
-        is_near_miss = (self.min_score - self.near_miss_delta) <= final_score < self.min_score
+        # 6. Match & Near-Miss Thresholds (Requires at least one tech track keyword match)
+        has_tech_match = best_track_score > 0
+        is_match = has_tech_match and (final_score >= self.min_score)
+        is_near_miss = has_tech_match and ((self.min_score - self.near_miss_delta) <= final_score < self.min_score)
 
         # 7. Human-Readable Audit Trail
         details_parts = [
