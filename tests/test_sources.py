@@ -13,6 +13,7 @@ from jobradar.adapters.sources.remotive import RemotiveSourceAdapter
 from jobradar.adapters.sources.reliefweb import ReliefWebSourceAdapter
 from jobradar.adapters.sources.rss import RssSourceAdapter
 from jobradar.adapters.sources.html import HtmlSourceAdapter
+from jobradar.adapters.sources.workday import WorkdaySourceAdapter
 
 
 @pytest.fixture
@@ -227,3 +228,42 @@ def test_fault_isolation_on_unhandled_error(crawler_config):
     assert items == []
     assert run.status == "failed"
     assert "DNS resolution failed" in (run.error_message or "")
+
+
+def test_workday_adapter(crawler_config):
+    mock_payload = {
+        "jobPostings": [
+            {
+                "title": "Lead Data & Analytics Consultant",
+                "externalPath": "/job/Nairobi/Lead-Data-Analytics/JR101",
+                "locationsText": "Nairobi, Kenya",
+                "bulletFields": ["JR101", "Full-time"],
+            }
+        ]
+    }
+    mock_resp = MagicMock()
+    mock_resp.json.return_value = mock_payload
+    mock_resp.raise_for_status.return_value = None
+
+    mock_session = MagicMock()
+    mock_session.post.return_value = mock_resp
+
+    cfg = SourceConfig(
+        id="pwc_workday",
+        name="PwC East Africa",
+        type="workday",
+        url="https://pwc.wd3.myworkdayjobs.com/wday/cxs/pwc/Global_Experienced_Careers/jobs",
+        selectors={"search_text": "Nairobi"},
+    )
+    adapter = WorkdaySourceAdapter(cfg, crawler_config)
+    items, run = adapter.safe_fetch(mock_session)
+
+    assert run.status == "success"
+    assert len(items) == 1
+    raw, job = items[0]
+    assert job.title == "Lead Data & Analytics Consultant"
+    assert job.company == "PwC East Africa"
+    assert "Nairobi" in job.location
+    assert "https://pwc.wd3.myworkdayjobs.com/Global_Experienced_Careers/job/Nairobi/Lead-Data-Analytics/JR101" == job.url
+    assert raw.source_url == job.url
+

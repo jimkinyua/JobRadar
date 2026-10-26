@@ -88,8 +88,9 @@ async def get_sources():
 async def trigger_run():
     """Trigger an on-demand crawl and scoring cycle."""
     try:
+        import asyncio
         pipeline = JobRadarPipeline()
-        summary = pipeline.run(dry_run=False, force_digest=False)
+        summary = await asyncio.to_thread(pipeline.run, False, False)
         return {"status": "success", "summary": summary}
     except Exception as e:
         logger.exception("Manual pipeline run failed")

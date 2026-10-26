@@ -12,6 +12,7 @@ from jobradar.adapters.sources.remotive import RemotiveSourceAdapter
 from jobradar.adapters.sources.reliefweb import ReliefWebSourceAdapter
 from jobradar.adapters.sources.rss import RssSourceAdapter
 from jobradar.adapters.sources.html import HtmlSourceAdapter
+from jobradar.adapters.sources.workday import WorkdaySourceAdapter
 
 
 def get_source_adapter(source_config: SourceConfig, crawler_config: CrawlerConfig) -> BaseSourceAdapter:
@@ -34,5 +35,7 @@ def get_source_adapter(source_config: SourceConfig, crawler_config: CrawlerConfi
         return RssSourceAdapter(source_config, crawler_config)
     elif source_type == "html":
         return HtmlSourceAdapter(source_config, crawler_config)
+    elif source_type == "workday":
+        return WorkdaySourceAdapter(source_config, crawler_config)
     else:
         raise ValueError(f"Unknown or unsupported source type: '{source_type}' for source '{source_config.id}'")

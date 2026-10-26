@@ -58,15 +58,26 @@ scoring:
       name: "Data Engineering & Streaming"
       keywords:
         data engineer: 4.0
+        data engineering: 4.0
         etl: 3.0
-        kafka: 2.0
+        kafka: 3.0
         sql: 2.0
         python: 3.0
         azure: 3.0
         spark: 3.0
+        pyspark: 3.0
         databricks: 3.0
-        pipeline: 2.0
-        integration: 4.0
+        pipeline: 3.0
+        data pipeline: 4.0
+        data warehouse: 3.0
+        airflow: 3.0
+        dbt: 3.0
+        snowflake: 3.0
+        bigquery: 3.0
+        lakehouse: 3.0
+        integration: 3.0
+        bi: 2.0
+        power bi: 2.0
 
     track_dotnet_azure:
       name: "Enterprise .NET & Azure Cloud"
@@ -263,6 +274,44 @@ sources:
       location: ".location"
       description: "p"
 
+  - id: "deloitte_smartrecruiters"
+    name: "Deloitte East Africa & Africa"
+    type: "smartrecruiters"
+    company_identifier: "Deloitte6"
+    enabled: true
+
+  - id: "pwc_east_africa"
+    name: "PwC Kenya & East Africa"
+    type: "workday"
+    url: "https://pwc.wd3.myworkdayjobs.com/wday/cxs/pwc/Global_Experienced_Careers/jobs"
+    enabled: true
+    selectors:
+      search_text: "Nairobi"
+
+  - id: "ey_east_africa"
+    name: "EY East Africa Careers"
+    type: "html"
+    url: "https://careers.ey.com/ey/search/?q=Kenya"
+    enabled: true
+    selectors:
+      item: "tr.data-row"
+      title: "a.jobTitle-link, a"
+      link: "a.jobTitle-link, a"
+      location: ".jobLocation"
+      description: "td"
+
+  - id: "pkf_eastern_africa"
+    name: "PKF Eastern Africa Careers"
+    type: "html"
+    url: "https://pkfea.com/careers"
+    enabled: true
+    selectors:
+      item: "table tbody tr"
+      title: "td:first-child"
+      link: "a"
+      location: "td:nth-child(3)"
+      description: "td"
+
   # ============================================================================
   # DISABLED SOURCES (Failed 5-Point Acceptance Test - Kept with documented reasons)
   # ============================================================================
@@ -271,13 +320,6 @@ sources:
     name: "Fuzu Kenya"
     type: "html"
     url: "https://www.fuzu.com/kenya/jobs"
-    enabled: false
-
-  # Deloitte EA: Failed Criterion 1. SmartRecruiters robots.txt disallows automated crawler access to /v1/companies/.
-  - id: "deloitte_smartrecruiters"
-    name: "Deloitte East Africa (SmartRecruiters)"
-    type: "smartrecruiters"
-    company_identifier: "deloitte"
     enabled: false
 
   # ReliefWeb: Failed Criterion 1. robots.txt disallows /v1/ crawling without formal developer token approval.

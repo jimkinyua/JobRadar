@@ -34,16 +34,18 @@ class JobRadarPipeline:
 
     def __init__(
         self,
-        config: AppConfig,
-        repo: BaseStorageRepository,
+        config: Optional[AppConfig] = None,
+        repo: Optional[BaseStorageRepository] = None,
         telegram: Optional[TelegramClient] = None,
     ) -> None:
-        self.config = config
-        self.repo = repo
-        self.scorer = JobScorer(config)
+        from jobradar.config import load_config
+        from jobradar.adapters.storage.factory import get_repository
+        self.config = config or load_config()
+        self.repo = repo or get_repository()
+        self.scorer = JobScorer(self.config)
         self.telegram = telegram or TelegramClient(
-            bot_token=config.telegram_bot_token,
-            chat_id=config.telegram_chat_id,
+            bot_token=self.config.telegram_bot_token,
+            chat_id=self.config.telegram_chat_id,
         )
 
     def run(

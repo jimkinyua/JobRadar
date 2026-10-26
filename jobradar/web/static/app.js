@@ -11,6 +11,8 @@ let state = {
   sortBy: 'score',
 };
 
+let currentJobs = {};
+let activeModalJobId = null;
 let debounceTimer = null;
 
 // Initialize on DOM load
@@ -24,10 +26,20 @@ document.addEventListener('DOMContentLoaded', () => {
 function initEventListeners() {
   // Track tabs
   document.querySelectorAll('.tab-btn').forEach(btn => {
-    btn.addEventListener('click', (e) => {
+    btn.addEventListener('click', () => {
       document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
       state.track = btn.dataset.track;
+
+      // If user switches to a specific persona track, reset score filter to 'all'
+      // so jobs matching the track are immediately visible!
+      if (state.track !== 'all') {
+        const scoreFilter = document.getElementById('score-filter');
+        if (scoreFilter && scoreFilter.value !== 'all') {
+          scoreFilter.value = 'all';
+          state.minScore = null;
+        }
+      }
       loadJobs();
     });
   });
@@ -120,10 +132,13 @@ async function loadSources() {
     const select = document.getElementById('source-filter');
     if (!select) return;
 
+    // Reset keeping only first option
+    select.innerHTML = '<option value="all">🏢 All Sources</option>';
+
     data.sources.forEach(s => {
       const opt = document.createElement('option');
       opt.value = s.id;
-      opt.textContent = s.name;
+      opt.textContent = `${s.name} ${s.enabled ? '' : '(Disabled)'}`;
       select.appendChild(opt);
     });
   } catch (err) {
@@ -171,6 +186,11 @@ async function loadJobs() {
       return;
     }
 
+    currentJobs = {};
+    data.jobs.forEach(j => {
+      currentJobs[j.id] = j;
+    });
+
     container.innerHTML = data.jobs.map((job, idx) => renderJobCard(job, idx)).join('');
   } catch (err) {
     console.error('Failed to load jobs:', err);
@@ -184,7 +204,7 @@ async function loadJobs() {
   }
 }
 
-function renderJobCard(job, index) {
+function renderJobCard(job) {
   const isMatch = job.final_score >= 9.0;
   const isNearMiss = !isMatch && job.final_score >= 6.5;
 
@@ -221,6 +241,7 @@ function renderJobCard(job, index) {
   }
 
   const postedText = job.first_seen ? formatRelativeTime(job.first_seen) : 'Recently';
+  const fullDesc = job.full_description || job.description || 'No detailed requirements provided.';
 
   return `
     <div class="${cardClass}" id="job-card-${job.id}">
@@ -248,53 +269,125 @@ function renderJobCard(job, index) {
       ${chips.length > 0 ? `<div class="breakdown-chips">${chips.join('')}</div>` : ''}
 
       <div class="card-actions">
-        <button class="btn-inspect" onclick="showBreakdownModal(${JSON.stringify(job).replace(/"/g, '&quot;')})">
-          📊 Breakdown
-        </button>
+        <div class="action-buttons-left">
+          <button class="btn-toggle-req" id="btn-toggle-${job.id}" onclick="toggleRequirements(${job.id})">
+            📋 View Requirements & Details <span class="req-arrow">▼</span>
+          </button>
+          <button class="btn-inspect" onclick="openJobModal(${job.id}, 'breakdown')">
+            📊 Match Breakdown
+          </button>
+        </div>
         <a href="${escapeHtml(job.url)}" target="_blank" rel="noopener noreferrer" class="apply-link">
           Apply on ${escapeHtml(formatSourceName(job.source))} →
         </a>
+      </div>
+
+      <div class="job-req-drawer" id="req-drawer-${job.id}" style="display: none;">
+        <div class="job-req-drawer-header">
+          <span class="req-header-title">📋 Full Job Description & Role Requirements</span>
+          <button class="btn-hide-req" onclick="toggleRequirements(${job.id})">Hide ▲</button>
+        </div>
+        <div class="req-drawer-body">
+          ${formatDescriptionHtml(fullDesc)}
+        </div>
+        <div class="req-drawer-footer">
+          <a href="${escapeHtml(job.url)}" target="_blank" rel="noopener noreferrer" class="btn btn-primary" style="font-size: 0.85rem; padding: 0.45rem 1rem;">
+            Apply Directly on ${escapeHtml(formatSourceName(job.source))} →
+          </a>
+        </div>
       </div>
     </div>
   `;
 }
 
-function showBreakdownModal(job) {
+function toggleRequirements(jobId) {
+  const drawer = document.getElementById(`req-drawer-${jobId}`);
+  const btn = document.getElementById(`btn-toggle-${jobId}`);
+  if (!drawer || !btn) return;
+
+  const isOpen = drawer.style.display !== 'none';
+  if (isOpen) {
+    drawer.style.display = 'none';
+    btn.classList.remove('open');
+    btn.innerHTML = `📋 View Requirements & Details <span class="req-arrow">▼</span>`;
+  } else {
+    drawer.style.display = 'block';
+    btn.classList.add('open');
+    btn.innerHTML = `📋 Hide Requirements & Details <span class="req-arrow">▲</span>`;
+  }
+}
+
+function openJobModal(jobId, initialTab = 'requirements') {
+  const job = currentJobs[jobId];
+  if (!job) return;
+
+  activeModalJobId = jobId;
   const modal = document.getElementById('modal-overlay');
   const title = document.getElementById('modal-job-title');
   const content = document.getElementById('modal-job-content');
   if (!modal || !title || !content) return;
 
-  const b = job.breakdown || {};
   title.textContent = `${job.title} · ${job.company}`;
 
   content.innerHTML = `
-    <div style="margin-bottom: 1rem;">
+    <div class="modal-nav-tabs">
+      <button class="modal-nav-btn ${initialTab === 'requirements' ? 'active' : ''}" id="modal-tab-req" onclick="switchModalTab('requirements')">
+        📋 Full Requirements & Description
+      </button>
+      <button class="modal-nav-btn ${initialTab === 'breakdown' ? 'active' : ''}" id="modal-tab-score" onclick="switchModalTab('breakdown')">
+        📊 Scoring & Persona Breakdown
+      </button>
+    </div>
+
+    <div id="modal-pane-requirements" style="display: ${initialTab === 'requirements' ? 'block' : 'none'};">
+      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; padding: 0.85rem 1.1rem; background: var(--bg-subtle); border-radius: var(--radius-md);">
+        <div>
+          <span style="font-size: 0.85rem; color: var(--text-muted);">Source: <b>${escapeHtml(formatSourceName(job.source))}</b></span>
+          <span style="margin: 0 0.5rem; color: var(--border-light);">|</span>
+          <span style="font-size: 0.85rem; color: var(--text-muted);">Location: <b>${escapeHtml(job.location)}</b></span>
+        </div>
+        <span class="track-tag ${job.best_track_id || 'general'}">${escapeHtml(job.best_track_name || 'General')}</span>
+      </div>
+
+      <div class="req-drawer-body" style="max-height: 52vh; padding-right: 0.75rem;">
+        ${formatDescriptionHtml(job.full_description || job.description)}
+      </div>
+
+      <div style="margin-top: 1.5rem; display: flex; justify-content: flex-end; gap: 0.75rem; padding-top: 1rem; border-top: 1px solid var(--border-light);">
+        <button class="btn btn-ghost" onclick="switchModalTab('breakdown')">View Score Breakdown 📊</button>
+        <a href="${escapeHtml(job.url)}" target="_blank" rel="noopener noreferrer" class="btn btn-primary">
+          Apply on ${escapeHtml(formatSourceName(job.source))} →
+        </a>
+      </div>
+    </div>
+
+    <div id="modal-pane-breakdown" style="display: ${initialTab === 'breakdown' ? 'block' : 'none'};">
       <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.25rem; padding: 1.2rem; background: var(--bg-subtle); border-radius: var(--radius-lg); border: 1px solid var(--border-light);">
         <div>
-          <div style="font-family: var(--font-mono); font-size: 0.725rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em;">Best Matched Track</div>
-          <div style="font-size: 1.15rem; font-weight: 800; color: var(--text-headline);">${escapeHtml(b.best_track_name || 'General')}</div>
+          <div style="font-family: var(--font-mono); font-size: 0.725rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em;">Best Matched Persona Track</div>
+          <div style="font-size: 1.15rem; font-weight: 800; color: var(--text-headline);">${escapeHtml(job.best_track_name || 'General')}</div>
         </div>
         <div style="text-align: right;">
           <div style="font-family: var(--font-mono); font-size: 0.725rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em;">Match Score</div>
-          <div style="font-size: 1.75rem; font-weight: 800; font-family: var(--font-mono); color: var(--brand-green);">${(b.final_score || job.final_score).toFixed(1)}</div>
+          <div style="font-size: 1.75rem; font-weight: 800; font-family: var(--font-mono); color: var(--brand-green);">${job.final_score.toFixed(1)}</div>
         </div>
       </div>
 
-      <h4 style="font-family: var(--font-mono); font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.6rem; color: var(--text-muted);">Scoring Calculation:</h4>
+      <h4 style="font-family: var(--font-mono); font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.6rem; color: var(--text-muted);">Scoring Formula:</h4>
       <div style="background: #FFFFFF; border: 1.5px solid var(--border-light); border-radius: var(--radius-md); padding: 1.1rem; font-family: var(--font-mono); font-size: 0.85rem; line-height: 2;">
-        <div>• Track Tech Score: <b style="color: var(--brand-green);">+${(b.best_track_score || 0).toFixed(1)}</b></div>
-        <div>• Location Bonus: <b style="color: var(--brand-green);">+${(b.location_bonus || 0).toFixed(1)}</b> (${escapeHtml(job.location)})</div>
-        <div>• Seniority Bonus: <b style="color: var(--brand-green);">+${(b.seniority_bonus || 0).toFixed(1)}</b></div>
-        <div>• Penalties Deducted: <b style="color: #DC2626;">-${(b.penalties || 0).toFixed(1)}</b></div>
+        <div>• Track Tech Score: <b style="color: var(--brand-green);">+${(job.breakdown?.best_track_score || 0).toFixed(1)}</b></div>
+        <div>• Location Bonus: <b style="color: var(--brand-green);">+${(job.breakdown?.location_bonus || 0).toFixed(1)}</b> (${escapeHtml(job.location)})</div>
+        <div>• Seniority Bonus: <b style="color: var(--brand-green);">+${(job.breakdown?.seniority_bonus || 0).toFixed(1)}</b></div>
+        <div>• Penalties Deducted: <b style="color: #DC2626;">-${(job.breakdown?.penalties || 0).toFixed(1)}</b></div>
       </div>
 
-      <h4 style="font-family: var(--font-mono); font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; margin: 1.25rem 0 0.6rem 0; color: var(--text-muted);">Matched Keywords:</h4>
+      <h4 style="font-family: var(--font-mono); font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; margin: 1.25rem 0 0.6rem 0; color: var(--text-muted);">Matched Track Keywords:</h4>
       <div style="display: flex; flex-wrap: wrap; gap: 0.5rem;">
-        ${(b.tech_matches || []).map(k => `<span class="chip pos" style="font-size: 0.825rem; padding: 0.35rem 0.75rem;">✓ ${escapeHtml(k)}</span>`).join('') || '<span style="color: var(--text-dim); font-size: 0.85rem;">None</span>'}
+        ${(job.breakdown?.tech_matches || []).map(k => `<span class="chip pos" style="font-size: 0.825rem; padding: 0.35rem 0.75rem;">✓ ${escapeHtml(k)}</span>`).join('') || '<span style="color: var(--text-dim); font-size: 0.85rem;">None</span>'}
       </div>
 
-      <div style="margin-top: 2rem; display: flex; justify-content: flex-end; gap: 0.75rem;">
+      <div style="margin-top: 1.5rem; display: flex; justify-content: flex-end; gap: 0.75rem; padding-top: 1rem; border-top: 1px solid var(--border-light);">
+        <button class="btn btn-ghost" onclick="switchModalTab('requirements')">← Read Full Requirements</button>
         <a href="${escapeHtml(job.url)}" target="_blank" rel="noopener noreferrer" class="btn btn-primary">
           View Official Vacancy →
         </a>
@@ -303,6 +396,25 @@ function showBreakdownModal(job) {
   `;
 
   modal.classList.add('active');
+}
+
+function switchModalTab(tabName) {
+  const reqBtn = document.getElementById('modal-tab-req');
+  const scoreBtn = document.getElementById('modal-tab-score');
+  const reqPane = document.getElementById('modal-pane-requirements');
+  const scorePane = document.getElementById('modal-pane-breakdown');
+
+  if (tabName === 'requirements') {
+    if (reqBtn) reqBtn.classList.add('active');
+    if (scoreBtn) scoreBtn.classList.remove('active');
+    if (reqPane) reqPane.style.display = 'block';
+    if (scorePane) scorePane.style.display = 'none';
+  } else {
+    if (reqBtn) reqBtn.classList.remove('active');
+    if (scoreBtn) scoreBtn.classList.add('active');
+    if (reqPane) reqPane.style.display = 'none';
+    if (scorePane) scorePane.style.display = 'block';
+  }
 }
 
 async function handleTriggerRun() {
@@ -317,7 +429,9 @@ async function handleTriggerRun() {
     const res = await fetch('/api/trigger-run', { method: 'POST' });
     const data = await res.json();
     if (res.ok) {
-      showToast(`Crawl completed! Checked ${data.summary.sources_checked} sources, found ${data.summary.matches_found} matches.`);
+      const checked = data.summary?.sources_checked || 0;
+      const matches = data.summary?.matches_found || 0;
+      showToast(`Crawl completed! Checked ${checked} sources, found ${matches} matches.`);
       loadStats();
       loadJobs();
     } else {
@@ -353,40 +467,93 @@ function resetFilters() {
   loadJobs();
 }
 
-function showToast(message, isError = false) {
-  let toast = document.getElementById('toast');
-  if (!toast) {
-    toast = document.createElement('div');
-    toast.id = 'toast';
-    toast.className = 'toast';
-    document.body.appendChild(toast);
+function formatDescriptionHtml(text) {
+  if (!text) return '<p style="color: var(--text-dim);">No detailed description provided.</p>';
+  
+  // If text already contains HTML paragraph/list tags
+  if (/<[a-z][\s\S]*>/i.test(text)) {
+    // Basic sanitization: strip script/iframe tags
+    let clean = text
+      .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+      .replace(/<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi, '')
+      .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '');
+    return clean;
   }
 
-  toast.style.borderColor = isError ? 'var(--accent-rose)' : 'var(--accent-emerald)';
-  toast.innerHTML = `<span>${isError ? '⚠️' : '✅'}</span> <span>${escapeHtml(message)}</span>`;
-  toast.classList.add('active');
+  // Convert plain text with newlines and bullets into clean semantic HTML
+  const lines = text.split(/\r?\n/);
+  let html = '';
+  let inList = false;
 
-  setTimeout(() => {
-    toast.classList.remove('active');
-  }, 4000);
+  lines.forEach(line => {
+    const trimmed = line.trim();
+    if (!trimmed) {
+      if (inList) {
+        html += '</ul>';
+        inList = false;
+      }
+      return;
+    }
+
+    // Check for bullet points
+    if (/^[-*•]\s+/.test(trimmed)) {
+      if (!inList) {
+        html += '<ul>';
+        inList = true;
+      }
+      const itemContent = trimmed.replace(/^[-*•]\s+/, '');
+      html += `<li>${escapeHtml(itemContent)}</li>`;
+    } else {
+      if (inList) {
+        html += '</ul>';
+        inList = false;
+      }
+      html += `<p>${escapeHtml(trimmed)}</p>`;
+    }
+  });
+
+  if (inList) {
+    html += '</ul>';
+  }
+
+  return html || `<p>${escapeHtml(text)}</p>`;
 }
 
 function formatSourceName(sourceId) {
   if (!sourceId) return 'Direct';
-  return sourceId
-    .replace(/_/g, ' ')
-    .replace(/\b\w/g, c => c.toUpperCase());
+  const map = {
+    'remotive': 'Remotive Remote',
+    'weworkremotely': 'We Work Remotely',
+    'corporate_staffing': 'Corporate Staffing KE',
+    'jobwebkenya': 'JobWebKenya',
+    'watu_credit': 'Watu Credit',
+    'davis_shirtliff': 'Davis & Shirtliff',
+    'britam': 'Britam Insurance',
+    'coop_bank': 'Co-op Bank',
+    'ncba_bank': 'NCBA Group',
+    'kpmg_east_africa': 'KPMG East Africa',
+    'deloitte_smartrecruiters': 'Deloitte East Africa',
+    'pwc_east_africa': 'PwC East Africa',
+    'ey_east_africa': 'EY East Africa',
+    'pkf_eastern_africa': 'PKF Eastern Africa',
+    'kenya_red_cross': 'Kenya Red Cross',
+    'kemri_wellcome': 'KEMRI Wellcome',
+  };
+  return map[sourceId] || sourceId.replace(/_/g, ' ');
 }
 
-function formatRelativeTime(isoString) {
+function formatRelativeTime(dateStr) {
   try {
-    const date = new Date(isoString);
+    const date = new Date(dateStr);
     const now = new Date();
     const diffHours = Math.floor((now - date) / (1000 * 60 * 60));
+    
     if (diffHours < 1) return 'Just now';
     if (diffHours < 24) return `${diffHours}h ago`;
     const diffDays = Math.floor(diffHours / 24);
-    return `${diffDays}d ago`;
+    if (diffDays === 1) return 'Yesterday';
+    if (diffDays < 7) return `${diffDays}d ago`;
+    return date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
   } catch (e) {
     return 'Recently';
   }
@@ -400,4 +567,17 @@ function escapeHtml(str) {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#039;');
+}
+
+function showToast(message, isError = false) {
+  const toast = document.getElementById('toast');
+  if (!toast) return;
+
+  toast.textContent = message;
+  toast.style.borderColor = isError ? '#EF4444' : 'var(--brand-green)';
+  toast.classList.add('active');
+
+  setTimeout(() => {
+    toast.classList.remove('active');
+  }, 4000);
 }
