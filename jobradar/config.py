@@ -67,9 +67,7 @@ class AppConfig(BaseModel):
 
     # Runtime database and secrets from environment variables
     database_url: str = Field(
-        default_factory=lambda: os.getenv(
-            "DATABASE_URL", "postgresql://jobradar_user:change_me@localhost:5432/jobradar"
-        )
+        default_factory=lambda: os.getenv("DATABASE_URL", "")
     )
     telegram_bot_token: Optional[str] = Field(
         default_factory=lambda: os.getenv("TELEGRAM_BOT_TOKEN")
