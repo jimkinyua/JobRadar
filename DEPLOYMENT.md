@@ -1,70 +1,90 @@
-# Job-Radar Local Windows Automation Guide 🚀
+# Job-Radar Deployment & Automation Guide 🚀
 
-This document details how to run and automate `job-radar` natively on your Windows PC using Python 3.12+, local PostgreSQL, and Windows Task Scheduler.
-
----
-
-## 1. Setting Up Your Telegram Bot Credentials
-
-1. Open Telegram and message **[@BotFather](https://t.me/BotFather)**.
-2. Send `/newbot`, choose a name (e.g., `James Job Radar`), and choose a username ending in `bot` (e.g., `james_jobradar_bot`).
-3. Copy the HTTP API token provided by BotFather. This is your `TELEGRAM_BOT_TOKEN`.
-4. Start a conversation with your new bot by pressing **Start** or sending `/start`.
-5. In your web browser, open:
-   ```text
-   https://api.telegram.org/bot<YOUR_BOT_TOKEN>/getUpdates
-   ```
-6. Locate `"chat":{"id": 123456789, ...}`. That number is your `TELEGRAM_CHAT_ID`.
-7. Paste both values into your local `.env` file:
-   ```ini
-   TELEGRAM_BOT_TOKEN=your_token_here
-   TELEGRAM_CHAT_ID=your_chat_id_here
-   ```
+This document covers running and automating `job-radar` both on your live production Ubuntu 24.04 Linux VPS and on your local Windows PC.
 
 ---
 
-## 2. Verifying Telegram Connection
+## 🌟 Production Linux VPS (`167.86.109.143`)
 
-Open PowerShell in `c:\Job Crawler` and run:
+The application is deployed at `/opt/jobradar` with a native PostgreSQL instance and Python 3.12 virtual environment.
 
-```powershell
-.\.venv\Scripts\python -m jobradar test-telegram
+### 1. Connecting to the Server
+
+```bash
+ssh root@167.86.109.143
 ```
-You will receive an instant test confirmation message on your Telegram.
+
+### 2. Setting Telegram Credentials
+
+To receive instant Telegram alerts on your phone, edit the production `.env`:
+
+```bash
+nano /opt/jobradar/.env
+```
+
+Add your credentials:
+```ini
+TELEGRAM_BOT_TOKEN="your_token_from_botfather"
+TELEGRAM_CHAT_ID="your_telegram_chat_id"
+```
+
+Test the connection immediately:
+```bash
+/opt/jobradar/venv/bin/python -m jobradar test-telegram
+```
+
+### 3. Active Systemd Timers (Automated Background Execution)
+
+Two native systemd timers run 24/7 in the cloud:
+
+| Timer | Interval | Target Service | Purpose |
+|---|---|---|---|
+| `jobradar.timer` | Every 3 hours | `jobradar.service` | Crawls all 12 corporate & bank sources, scores matches, sends alerts |
+| `jobradar-commands.timer` | Every 5 minutes | `jobradar-commands.service` | Polls Telegram for `/add <id>` & `/ignore <id>` employer commands |
+
+To view timer schedules:
+```bash
+systemctl list-timers | grep jobradar
+```
+
+To view live pipeline logs:
+```bash
+journalctl -u jobradar.service -n 50 --no-pager
+```
+
+To manually trigger a run immediately on the VPS:
+```bash
+systemctl start jobradar.service
+# OR directly via CLI:
+cd /opt/jobradar && /opt/jobradar/venv/bin/python -m jobradar run
+```
 
 ---
 
-## 3. Running the Pipeline Manually
+## 💻 Local Windows Development & Execution
+
+If you also wish to run `job-radar` locally on your Windows PC:
+
+### 1. Set Up Telegram in Local `.env`
+
+Edit [`.env`](file:///c:/Job%20Crawler/.env) in the project root:
+```ini
+TELEGRAM_BOT_TOKEN="your_token_from_botfather"
+TELEGRAM_CHAT_ID="your_telegram_chat_id"
+```
+
+### 2. Run Commands
 
 ```powershell
-# 1. Dry-run test (prints matches to terminal without sending Telegram spam)
-.\.venv\Scripts\python -m jobradar run --dry-run
+# Test Telegram connection
+.\.venv\Scripts\python -m jobradar test-telegram
 
-# 2. Real execution (saves all jobs to PostgreSQL and sends matches to Telegram)
+# Ingest and alert
 .\.venv\Scripts\python -m jobradar run
 
-# 3. Check health and stats of all direct bank, Big 4, and remote sources
-.\.venv\Scripts\python -m jobradar sources
+# Dry-run without sending alerts
+.\.venv\Scripts\python -m jobradar run --dry-run
 
-# 4. Check discovered ATS employers (/add and /ignore list)
-.\.venv\Scripts\python -m jobradar employers
+# Run full automated test suite (34 tests)
+.\.venv\Scripts\pytest tests/
 ```
-
----
-
-## 4. Setting Up Automated Background Execution (Every 3 Hours)
-
-To have Windows run `job-radar` in the background automatically every 3 hours:
-
-Run the included PowerShell automation script:
-```powershell
-powershell -ExecutionPolicy Bypass -File scripts\setup_windows_scheduler.ps1
-```
-
-This registers a task named `JobRadar_Pipeline` in Windows Task Scheduler:
-- **Interval**: Runs every 3 hours.
-- **Actions**:
-  1. Polls Telegram for any `/add <id>` or `/ignore <id>` employer commands you sent from your phone.
-  2. Ingests all active direct career portals, feeds, and APIs.
-  3. Evaluates your 5 profile tracks and sends fresh alerts to Telegram.
-- **Logging**: Appends logs to `data/run.log`.
