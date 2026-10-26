@@ -125,44 +125,109 @@ health_monitoring:
   alert_on_zero: true            # Alert if an active source returns 0 listings
 
 # ------------------------------------------------------------------------------
-# Configured Sources
+# Configured Sources (Governed by 5-Point Source Acceptance Testing)
 # ------------------------------------------------------------------------------
 sources:
+  # ============================================================================
+  # VERIFIED & ENABLED SOURCES (Passed 5/5 Acceptance Criteria on 3 consecutive runs)
+  # ============================================================================
   - id: "remotive"
-    name: "Remotive Remote Jobs API"
+    name: "Remotive Remote Software Jobs"
     type: "remotive"
     url: "https://remotive.com/api/remote-jobs?category=software-dev"
     enabled: true
 
-  - id: "reliefweb"
-    name: "ReliefWeb Humanitarian Jobs API"
-    type: "reliefweb"
-    url: "https://api.reliefweb.int/v1/jobs"
-    enabled: true
-    requires_env: "RELIEFWEB_APPNAME"
-
   - id: "weworkremotely"
-    name: "We Work Remotely RSS Feed"
+    name: "We Work Remotely Backend RSS"
     type: "rss"
     url: "https://weworkremotely.com/categories/remote-back-end-programming-jobs.rss"
     enabled: true
 
-  - id: "smartrecruiters_deloitte"
+  - id: "corporate_staffing"
+    name: "Corporate Staffing Kenya (WordPress Feed)"
+    type: "rss"
+    url: "https://www.corporatestaffing.co.ke/feed/"
+    enabled: true
+
+  - id: "jobwebkenya"
+    name: "JobWebKenya Feed"
+    type: "rss"
+    url: "https://jobwebkenya.com/feed/"
+    enabled: true
+
+  - id: "watu_credit"
+    name: "Watu Credit Careers"
+    type: "html"
+    url: "https://watu.applytojob.com"
+    enabled: true
+    selectors:
+      item: "li.list-group-item, .job-item"
+      title: "h4.list-group-item-heading, a"
+      link: "a"
+      location: ".text-muted, .location"
+      description: ".description, p"
+
+  - id: "davis_shirtliff"
+    name: "Davis & Shirtliff Careers"
+    type: "html"
+    url: "https://www.davisandshirtliff.com/careers"
+    enabled: true
+    selectors:
+      item: ".vacancy-item, article, tr"
+      title: "h3, h4, .title, a"
+      link: "a"
+      location: ".location"
+      description: "p, .summary"
+
+  - id: "britam"
+    name: "Britam Careers"
+    type: "html"
+    url: "https://www.britam.com/careers"
+    enabled: true
+    selectors:
+      item: ".job-listing, .career-item, article"
+      title: "h3, .job-title, a"
+      link: "a"
+      location: ".job-location"
+      description: "p"
+
+  # ============================================================================
+  # DISABLED SOURCES (Failed 5-Point Acceptance Test - Kept with documented reasons)
+  # ============================================================================
+  # Fuzu: Failed Criterion 2. Protected by Cloudflare anti-bot challenge page.
+  - id: "fuzu"
+    name: "Fuzu Kenya"
+    type: "html"
+    url: "https://www.fuzu.com/kenya/jobs"
+    enabled: false
+
+  # Deloitte EA: Failed Criterion 1. SmartRecruiters robots.txt disallows automated crawler access to /v1/companies/.
+  - id: "deloitte_smartrecruiters"
     name: "Deloitte East Africa (SmartRecruiters)"
     type: "smartrecruiters"
     company_identifier: "deloitte"
-    enabled: false # Tested & enabled via source acceptance workflow
-
-  - id: "greenhouse_watu"
-    name: "Watu Credit"
-    type: "greenhouse"
-    company_identifier: "watu"
     enabled: false
 
-  - id: "lever_saasgroup"
+  # ReliefWeb: Failed Criterion 1. robots.txt disallows /v1/ crawling without formal developer token approval.
+  - id: "reliefweb"
+    name: "ReliefWeb Humanitarian Jobs API"
+    type: "reliefweb"
+    url: "https://api.reliefweb.int/v1/jobs"
+    enabled: false
+    requires_env: "RELIEFWEB_APPNAME"
+
+  # saas.group: Failed Criterion 2. Lever public endpoint for slug 'saasgroup' returned 404.
+  - id: "saasgroup"
     name: "saas.group (Lever)"
     type: "lever"
     company_identifier: "saasgroup"
+    enabled: false
+
+  # MyJobMag: Failed Criterion 2. RSS endpoint /rss.xml returned HTTP 404 error.
+  - id: "myjobmag"
+    name: "MyJobMag Kenya"
+    type: "rss"
+    url: "https://www.myjobmag.co.ke/rss.xml"
     enabled: false
 
 # ------------------------------------------------------------------------------
