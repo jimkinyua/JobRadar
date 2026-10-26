@@ -91,9 +91,10 @@ class TelegramClient:
         text = format_deadline_reminder(scored)
         return self.send_message(text)
 
-    def send_employer_spotted(self, employer: DiscoveredEmployer, count: int) -> bool:
+    def send_employer_spotted(self, employer: DiscoveredEmployer, count: int = 1, matching_jobs: Optional[int] = None) -> bool:
         """Alert user about a newly spotted employer ATS."""
-        text = format_employer_spotted(employer, count)
+        effective_count = matching_jobs if matching_jobs is not None else count
+        text = format_employer_spotted(employer, effective_count)
         return self.send_message(text)
 
     def get_updates(self, offset: Optional[int] = None) -> list[dict[str, Any]]:
