@@ -117,16 +117,9 @@ $$\text{Final Score} = \max(\text{Track Scores}) + \text{Location Multipliers} +
 
 ---
 
-## 💻 Local Windows Automation (No Docker Required)
+## 🚀 Production Deployment & Automation
 
-`job-radar` runs natively on your Windows PC using Python 3.12+ and your local PostgreSQL instance on port `5432`.
-
-### Automated Execution (Every 3 Hours)
-To automate the pipeline in the background on your Windows PC every 3 hours:
-```powershell
-powershell -ExecutionPolicy Bypass -File scripts\setup_windows_scheduler.ps1
-```
-This registers a background scheduled task `JobRadar_Pipeline` that triggers `run_jobradar.bat` every 3 hours and records logs to `data/run.log`.
+The application is deployed on an Ubuntu 24.04 VPS with native systemd timers (`jobradar.timer` every 3 hours, `jobradar-commands.timer` every 5 minutes) and native PostgreSQL. See [DEPLOYMENT.md](file:///c:/Job%20Crawler/DEPLOYMENT.md) for complete operation instructions.
 
 ---
 
