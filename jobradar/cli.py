@@ -224,6 +224,14 @@ def cmd_export_csv(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_serve(args: argparse.Namespace) -> int:
+    """Launch the FastAPI dashboard server."""
+    import uvicorn
+    print(f"\n🚀 Launching JobRadar Web Dashboard at http://{args.host}:{args.port}")
+    uvicorn.run("jobradar.web.app:app", host=args.host, port=args.port, reload=args.reload)
+    return 0
+
+
 def main() -> int:
     """CLI entrypoint router."""
     parser = argparse.ArgumentParser(
@@ -262,6 +270,13 @@ def main() -> int:
     p_exp = subparsers.add_parser("export-csv", help="Export matching jobs to CSV spreadsheet")
     p_exp.add_argument("--output", default="matches.csv", help="Path to output CSV file")
     p_exp.set_defaults(func=cmd_export_csv)
+
+    # serve
+    p_srv = subparsers.add_parser("serve", help="Launch live interactive web UI dashboard")
+    p_srv.add_argument("--host", default="0.0.0.0", help="Host interface to bind (default: 0.0.0.0)")
+    p_srv.add_argument("--port", type=int, default=8000, help="Port to bind (default: 8000)")
+    p_srv.add_argument("--reload", action="store_true", help="Enable auto-reload for development")
+    p_srv.set_defaults(func=cmd_serve)
 
     args = parser.parse_args()
     return args.func(args)

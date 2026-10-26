@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>JobRadar | Live Tech Career Discovery & Matching Dashboard</title>
+  <meta name="description" content="AI-driven job crawler, multi-track scoring engine, and live career dashboard for Senior Full-Stack, .NET, and Data Engineers.">
+  
+  <!-- Modern Typography from Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+  <!-- Top Navigation Header -->
+  <header class="header">
+    <div class="container header-content">
+      <div class="logo-group">
+        <div class="logo-icon">📡</div>
+        <div>
+          <div style="display: flex; align-items: center; gap: 0.5rem;">
+            <h1 class="logo-title">JOB-RADAR</h1>
+            <span class="logo-badge">PRO v1.0</span>
+          </div>
+          <div style="font-size: 0.75rem; color: var(--text-dim);">Nairobi Banking, Big-4 & Remote Intelligence Hub</div>
+        </div>
+      </div>
+
+      <div class="header-actions">
+        <div class="live-indicator">
+          <div class="pulse-dot"></div>
+          <span>Cloud Ingestion Active (Every 3h)</span>
+        </div>
+
+        <button id="refresh-btn" class="btn btn-ghost" title="Refresh local view">
+          🔄 Refresh
+        </button>
+
+        <button id="trigger-run-btn" class="btn btn-primary" title="Trigger immediate crawl">
+          ⚡ Run Crawl Now
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Dashboard Container -->
+  <main class="container">
+
+    <!-- KPI Statistics Grid -->
+    <section class="stats-grid" id="stats-section">
+      <div class="stat-card" id="card-total-jobs">
+        <div class="stat-label">Total Jobs Ingested</div>
+        <div class="stat-value" id="stat-total-jobs">--</div>
+      </div>
+      <div class="stat-card" id="card-high-matches">
+        <div class="stat-label">High Tech Matches (9.0+)</div>
+        <div class="stat-value emerald" id="stat-high-matches">--</div>
+      </div>
+      <div class="stat-card" id="card-near-misses">
+        <div class="stat-label">Near Misses (6.5 - 8.9)</div>
+        <div class="stat-value amber" id="stat-near-misses">--</div>
+      </div>
+      <div class="stat-card" id="card-active-sources">
+        <div class="stat-label">Direct Corporate Portals</div>
+        <div class="stat-value cyan" id="stat-active-sources">--</div>
+      </div>
+      <div class="stat-card" id="card-avg-score">
+        <div class="stat-label">Top 10 Match Quality</div>
+        <div class="stat-value indigo" id="stat-avg-score">--</div>
+      </div>
+    </section>
+
+    <!-- Filters & Persona Track Selection -->
+    <section class="filter-panel" id="filter-section">
+      <!-- Career Track Tabs -->
+      <div class="track-tabs" id="track-tabs-container">
+        <button class="tab-btn active" data-track="all" id="tab-all">🌟 All Tracks</button>
+        <button class="tab-btn" data-track="data_engineer" id="tab-data">🗄️ Data Engineering & ETL</button>
+        <button class="tab-btn" data-track="dotnet_enterprise" id="tab-dotnet">🌐 Enterprise C# / .NET Core</button>
+        <button class="tab-btn" data-track="python_go_backend" id="tab-backend">⚡ Modern Python & Go</button>
+        <button class="tab-btn" data-track="fintech_integrations" id="tab-fintech">💳 FinTech & M-Pesa</button>
+        <button class="tab-btn" data-track="leadership_qa" id="tab-lead">👔 Leadership & QA Automation</button>
+      </div>
+
+      <!-- Search and Secondary Filters -->
+      <div class="filter-row">
+        <div class="search-box">
+          <span class="search-icon">🔍</span>
+          <input 
+            type="text" 
+            id="search-input" 
+            class="search-input" 
+            placeholder="Search by job title, company, technology, or location..."
+            autocomplete="off"
+          >
+        </div>
+
+        <div class="select-group">
+          <select id="score-filter" class="filter-select" title="Filter by Score Threshold">
+            <option value="all">🏆 All Scored Postings</option>
+            <option value="matches" selected>🔥 High Matches Only (9.0+)</option>
+            <option value="near_misses">🎯 Near Misses (6.5 - 8.9)</option>
+          </select>
+
+          <select id="source-filter" class="filter-select" title="Filter by Job Source">
+            <option value="all">🏢 All Sources</option>
+          </select>
+        </div>
+      </div>
+    </section>
+
+    <!-- Feed Header -->
+    <div class="jobs-feed-header">
+      <div class="feed-count" id="jobs-count-text">Scanning job vacancies...</div>
+    </div>
+
+    <!-- Ranked Jobs Feed Grid -->
+    <section class="jobs-grid" id="jobs-grid">
+      <!-- Dynamically populated by app.js -->
+    </section>
+
+  </main>
+
+  <!-- Explainable Score Breakdown Modal -->
+  <div class="modal-overlay" id="modal-overlay">
+    <div class="modal-card" id="modal-card">
+      <div class="modal-header">
+        <h3 class="modal-title" id="modal-job-title">Job Audit Details</h3>
+        <button class="modal-close" id="modal-close">&times;</button>
+      </div>
+      <div id="modal-job-content">
+        <!-- Injected via JavaScript -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification Container -->
+  <div id="toast" class="toast"></div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

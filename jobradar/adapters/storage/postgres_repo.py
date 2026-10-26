@@ -473,3 +473,123 @@ class PostgresRepository(BaseStorageRepository):
             score_breakdown=breakdown,
             alert_sent_at=r["alert_sent_at"],
         )
+
+    def get_dashboard_jobs(
+        self,
+        track_id: Optional[str] = None,
+        min_score: Optional[float] = None,
+        source: Optional[str] = None,
+        search: Optional[str] = None,
+        limit: int = 200,
+    ) -> list[dict]:
+        clauses = ["j.is_closed = FALSE"]
+        params: list[Any] = []
+
+        if track_id and track_id != "all":
+            clauses.append("m.best_track_id = %s")
+            params.append(track_id)
+
+        if min_score is not None:
+            clauses.append("m.final_score >= %s")
+            params.append(min_score)
+
+        if source and source != "all":
+            clauses.append("j.source = %s")
+            params.append(source)
+
+        if search and search.strip():
+            clauses.append("(j.title ILIKE %s OR j.company ILIKE %s OR j.location ILIKE %s OR j.description ILIKE %s)")
+            q = f"%{search.strip()}%"
+            params.extend([q, q, q, q])
+
+        where_sql = " AND ".join(clauses)
+        params.append(limit)
+
+        query = f"""
+        SELECT 
+            j.id,
+            j.fingerprint,
+            j.url,
+            j.title,
+            j.company,
+            j.location,
+            j.description,
+            j.posted_at,
+            j.deadline_at,
+            j.source,
+            j.first_seen,
+            j.last_seen,
+            COALESCE(m.best_track_id, 'general') AS best_track_id,
+            COALESCE(m.best_track_name, 'General Tech') AS best_track_name,
+            COALESCE(m.final_score, 0.0) AS final_score,
+            COALESCE(m.is_match, FALSE) AS is_match,
+            COALESCE(m.is_near_miss, FALSE) AS is_near_miss,
+            m.breakdown_json
+        FROM jobs j
+        LEFT JOIN scored_matches m ON j.fingerprint = m.job_fingerprint
+        WHERE {where_sql}
+        ORDER BY m.final_score DESC NULLS LAST, j.first_seen DESC
+        LIMIT %s;
+        """
+
+        with self.pool.connection() as conn:
+            with conn.cursor() as cursor:
+                cursor.execute(query, tuple(params))
+                rows = cursor.fetchall()
+                results = []
+                for r in rows:
+                    breakdown = r["breakdown_json"]
+                    if isinstance(breakdown, str):
+                        try:
+                            breakdown = json.loads(breakdown)
+                        except Exception:
+                            breakdown = {}
+                    elif breakdown is None:
+                        breakdown = {}
+
+                    results.append({
+                        "id": r["id"],
+                        "fingerprint": r["fingerprint"],
+                        "url": r["url"],
+                        "title": r["title"],
+                        "company": r["company"],
+                        "location": r["location"] or "Unspecified",
+                        "description": r["description"][:300] + "..." if len(r["description"] or "") > 300 else (r["description"] or ""),
+                        "posted_at": r["posted_at"].isoformat() if r["posted_at"] else None,
+                        "deadline_at": r["deadline_at"].isoformat() if r["deadline_at"] else None,
+                        "source": r["source"],
+                        "first_seen": r["first_seen"].isoformat() if r["first_seen"] else None,
+                        "best_track_id": r["best_track_id"],
+                        "best_track_name": r["best_track_name"],
+                        "final_score": float(r["final_score"]),
+                        "is_match": bool(r["is_match"]),
+                        "is_near_miss": bool(r["is_near_miss"]),
+                        "breakdown": breakdown,
+                    })
+                return results
+
+    def get_dashboard_stats(self) -> dict:
+        with self.pool.connection() as conn:
+            with conn.cursor() as cursor:
+                cursor.execute(
+                    """
+                    SELECT 
+                        (SELECT COUNT(*) FROM jobs WHERE is_closed = FALSE) AS total_jobs,
+                        (SELECT COUNT(*) FROM scored_matches WHERE is_match = TRUE) AS high_matches,
+                        (SELECT COUNT(*) FROM scored_matches WHERE is_near_miss = TRUE) AS near_misses,
+                        (SELECT COUNT(DISTINCT source) FROM jobs) AS active_sources,
+                        (SELECT COUNT(*) FROM discovered_employers) AS employers_spotted,
+                        (SELECT COALESCE(ROUND(AVG(final_score)::numeric, 1), 0.0) FROM (
+                            SELECT final_score FROM scored_matches WHERE is_match = TRUE ORDER BY final_score DESC LIMIT 10
+                         ) top10) AS top10_avg_score;
+                    """
+                )
+                row = cursor.fetchone()
+                return {
+                    "total_jobs": int(row["total_jobs"] or 0),
+                    "high_matches": int(row["high_matches"] or 0),
+                    "near_misses": int(row["near_misses"] or 0),
+                    "active_sources": int(row["active_sources"] or 0),
+                    "employers_spotted": int(row["employers_spotted"] or 0),
+                    "top10_avg_score": float(row["top10_avg_score"] or 0.0),
+                }

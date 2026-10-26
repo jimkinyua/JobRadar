@@ -100,3 +100,20 @@ class BaseStorageRepository(ABC):
     def count_total_jobs(self) -> int:
         """Return total count of stored silver jobs."""
         pass
+
+    @abstractmethod
+    def get_dashboard_jobs(
+        self,
+        track_id: Optional[str] = None,
+        min_score: Optional[float] = None,
+        source: Optional[str] = None,
+        search: Optional[str] = None,
+        limit: int = 200,
+    ) -> list[dict]:
+        """Fetch ranked jobs with their scoring breakdowns for web presentation."""
+        pass
+
+    @abstractmethod
+    def get_dashboard_stats(self) -> dict:
+        """Fetch aggregate summary metrics for the web dashboard."""
+        pass
