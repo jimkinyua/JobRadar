@@ -191,6 +191,78 @@ sources:
       location: ".job-location"
       description: "p"
 
+  - id: "coop_bank"
+    name: "Co-operative Bank of Kenya Careers"
+    type: "html"
+    url: "https://www.co-opbank.co.ke/careers/"
+    enabled: true
+    selectors:
+      item: ".career-item, .job-listing, article, tr"
+      title: "h3, h4, .title, a"
+      link: "a"
+      location: ".location"
+      description: "p, .summary"
+
+  - id: "ncba_bank"
+    name: "NCBA Group Careers"
+    type: "html"
+    url: "https://ncbagroup.com/careers/"
+    enabled: true
+    selectors:
+      item: ".job-item, .career-listing, article"
+      title: "h3, h4, a"
+      link: "a"
+      location: ".location"
+      description: "p"
+
+  - id: "safaricom"
+    name: "Safaricom Careers"
+    type: "html"
+    url: "https://www.safaricom.co.ke/careers"
+    enabled: true
+    selectors:
+      item: ".job-item, .career-block, li"
+      title: "h3, h4, .job-title, a"
+      link: "a"
+      location: ".location"
+      description: "p"
+
+  - id: "kpmg_east_africa"
+    name: "KPMG East Africa Careers"
+    type: "html"
+    url: "https://kpmg.com/ke/en/careers.html"
+    enabled: true
+    selectors:
+      item: ".job-card, .search-result, article, li"
+      title: "h3, h4, a"
+      link: "a"
+      location: ".location"
+      description: "p"
+
+  - id: "kenya_red_cross"
+    name: "Kenya Red Cross Careers"
+    type: "html"
+    url: "https://redcross.or.ke/careers/"
+    enabled: true
+    selectors:
+      item: ".vacancy-item, article, tr, li"
+      title: "h3, h4, a"
+      link: "a"
+      location: ".location"
+      description: "p"
+
+  - id: "kemri_wellcome"
+    name: "KEMRI Wellcome Trust Careers"
+    type: "html"
+    url: "https://kemri-wellcome.org/careers/"
+    enabled: true
+    selectors:
+      item: ".vacancy, .job-row, article, li"
+      title: "h3, h4, a"
+      link: "a"
+      location: ".location"
+      description: "p"
+
   # ============================================================================
   # DISABLED SOURCES (Failed 5-Point Acceptance Test - Kept with documented reasons)
   # ============================================================================

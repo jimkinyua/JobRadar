@@ -92,28 +92,41 @@ $$\text{Final Score} = \max(\text{Track Scores}) + \text{Location Multipliers} +
 
 ## 🚀 CLI Commands
 
-```bash
+```powershell
 # Run full ingestion, scoring, and notification pipeline
-python -m jobradar run [--dry-run]
+.\.venv\Scripts\python -m jobradar run [--dry-run]
 
 # Poll Telegram for pending /add and /ignore commands
-python -m jobradar commands
+.\.venv\Scripts\python -m jobradar commands
 
 # Verify Telegram bot credentials and test message delivery
-python -m jobradar test-telegram
+.\.venv\Scripts\python -m jobradar test-telegram
 
 # Display health and status of all configured sources
-python -m jobradar sources
+.\.venv\Scripts\python -m jobradar sources
 
 # List pending, approved, and ignored discovered employers
-python -m jobradar employers
+.\.venv\Scripts\python -m jobradar employers
 
 # Re-evaluate stored jobs against updated scoring keywords
-python -m jobradar rescore
+.\.venv\Scripts\python -m jobradar rescore
 
 # Export matched jobs to CSV
-python -m jobradar export-csv --output matches.csv
+.\.venv\Scripts\python -m jobradar export-csv --output matches.csv
 ```
+
+---
+
+## 💻 Local Windows Automation (No Docker Required)
+
+`job-radar` runs natively on your Windows PC using Python 3.12+ and your local PostgreSQL instance on port `5432`.
+
+### Automated Execution (Every 3 Hours)
+To automate the pipeline in the background on your Windows PC every 3 hours:
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\setup_windows_scheduler.ps1
+```
+This registers a background scheduled task `JobRadar_Pipeline` that triggers `run_jobradar.bat` every 3 hours and records logs to `data/run.log`.
 
 ---
 
@@ -121,3 +134,4 @@ python -m jobradar export-csv --output matches.csv
 
 - **Zero-Network Tests**: Pytest test suite with offline JSON/HTML fixtures.
 - **Comprehensive Coverage**: Unit tests for adapters, Pydantic schemas, deduplicator fingerprints, scoring explainability, and Telegram HTML entity escaping.
+
