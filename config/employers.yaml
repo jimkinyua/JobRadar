@@ -1,0 +1,12 @@
+# ==============================================================================
+# Watched & Approved Employers (Auto-updated via Telegram /add and /ignore)
+# ==============================================================================
+# Structure:
+# - id: unique slug or id
+#   company: Company Name
+#   system: smartrecruiters | greenhouse | lever | workable | jazzhr | workday
+#   identifier: slug or board token
+#   added_at: ISO timestamp
+#   status: approved | ignored | pending
+
+employers: []

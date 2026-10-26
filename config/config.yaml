@@ -1,0 +1,174 @@
+# ==============================================================================
+# Job-Radar Pipeline Configuration
+# ==============================================================================
+
+pipeline:
+  name: "jobradar"
+  version: "0.1.0"
+  min_score: 8.0
+  near_miss_delta: 2.0  # Jobs within [min_score - 2, min_score] qualify for Monday digest
+  max_alerts_per_run: 15
+  initial_run_baseline_alerts: 10
+  deadline_reminder_days: 3
+
+# ------------------------------------------------------------------------------
+# Scoring Engine: Multi-Track Persona System
+# ------------------------------------------------------------------------------
+# Final Score = max(Track Scores) + Location Bonuses + Seniority Bonuses - Exclusions
+# Title match = full weight, Description match = half weight.
+scoring:
+  # Optional title_any gate: If non-empty, title MUST contain at least one keyword
+  # Set to [] to disable title-gate and rely purely on weighted score.
+  title_any: []
+
+  # Excluded terms: If found in title, job receives an immediate heavy penalty or disqualification
+  exclude_keywords:
+    - "intern"
+    - "internship"
+    - "junior"
+    - "graduate"
+    - "entry level"
+    - "entry-level"
+    - "sales"
+    - "marketing"
+    - "customer care"
+    - "unpaid"
+
+  # Location bonuses (added to overall score if matched)
+  locations:
+    nairobi: 4.0
+    kenya: 3.0
+    remote: 4.0
+    emea: 3.0
+    africa: 2.0
+    worldwide: 3.0
+
+  # Seniority bonuses
+  seniority:
+    senior: 2.0
+    lead: 2.0
+    tech lead: 4.0
+    principal: 3.0
+    staff: 3.0
+    architect: 3.0
+
+  # Multi-Track Persona Keyword Weights
+  tracks:
+    track_data_engineering:
+      name: "Data Engineering & Streaming"
+      keywords:
+        data engineer: 4.0
+        etl: 3.0
+        kafka: 2.0
+        sql: 2.0
+        python: 3.0
+        azure: 3.0
+        spark: 3.0
+        databricks: 3.0
+        pipeline: 2.0
+        integration: 4.0
+
+    track_dotnet_azure:
+      name: "Enterprise .NET & Azure Cloud"
+      keywords:
+        .net: 5.0
+        c#: 5.0
+        asp.net: 4.0
+        azure: 3.0
+        sql: 2.0
+        logic apps: 3.0
+        functions: 2.0
+        entra id: 2.0
+        integration: 4.0
+        full stack: 3.0
+
+    track_modern_backend:
+      name: "Modern Backend (Python / Go / Laravel)"
+      keywords:
+        python: 3.0
+        golang: 2.0
+        go: 2.0
+        laravel: 2.0
+        php: 2.0
+        sql: 2.0
+        kafka: 2.0
+        rest api: 2.0
+        microservices: 2.0
+        full stack: 3.0
+
+    track_fintech_integrations:
+      name: "FinTech & System Integrations"
+      keywords:
+        etims: 4.0
+        tax: 2.0
+        payments: 3.0
+        m-pesa: 3.0
+        integration: 4.0
+        rest api: 2.0
+        banking: 2.0
+
+    track_leadership_qa:
+      name: "Engineering Leadership & QA Automation"
+      keywords:
+        tech lead: 4.0
+        lead: 2.0
+        senior: 2.0
+        test automation: 3.0
+        qa: 2.0
+        full stack: 3.0
+
+# ------------------------------------------------------------------------------
+# Source Ingestion & Health Check Thresholds
+# ------------------------------------------------------------------------------
+health_monitoring:
+  drop_threshold_percent: 50.0  # Alert if volume drops >50% vs previous run
+  alert_on_zero: true            # Alert if an active source returns 0 listings
+
+# ------------------------------------------------------------------------------
+# Configured Sources
+# ------------------------------------------------------------------------------
+sources:
+  - id: "remotive"
+    name: "Remotive Remote Jobs API"
+    type: "remotive"
+    url: "https://remotive.com/api/remote-jobs?category=software-dev"
+    enabled: true
+
+  - id: "reliefweb"
+    name: "ReliefWeb Humanitarian Jobs API"
+    type: "reliefweb"
+    url: "https://api.reliefweb.int/v1/jobs"
+    enabled: true
+    requires_env: "RELIEFWEB_APPNAME"
+
+  - id: "weworkremotely"
+    name: "We Work Remotely RSS Feed"
+    type: "rss"
+    url: "https://weworkremotely.com/categories/remote-back-end-programming-jobs.rss"
+    enabled: true
+
+  - id: "smartrecruiters_deloitte"
+    name: "Deloitte East Africa (SmartRecruiters)"
+    type: "smartrecruiters"
+    company_identifier: "deloitte"
+    enabled: false # Tested & enabled via source acceptance workflow
+
+  - id: "greenhouse_watu"
+    name: "Watu Credit"
+    type: "greenhouse"
+    company_identifier: "watu"
+    enabled: false
+
+  - id: "lever_saasgroup"
+    name: "saas.group (Lever)"
+    type: "lever"
+    company_identifier: "saasgroup"
+    enabled: false
+
+# ------------------------------------------------------------------------------
+# HTML Crawlers (Respects robots.txt, 2-second rate-limiting, strict User-Agent)
+# ------------------------------------------------------------------------------
+crawler:
+  user_agent: "JobRadarBot/1.0 (+https://github.com/james/job-radar; ethical career crawler)"
+  request_delay_seconds: 2.0
+  request_timeout_seconds: 15.0
