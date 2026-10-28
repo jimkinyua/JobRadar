@@ -95,3 +95,77 @@ async def trigger_run():
     except Exception as e:
         logger.exception("Manual pipeline run failed")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/jobs/{job_id}/ai-evaluate")
+async def evaluate_job_ai(job_id: int):
+    """Generate or retrieve AI Copilot fit insight for a specific job."""
+    import asyncio
+    import json
+    from jobradar.config import load_config
+    from jobradar.services.ai_service import AIService
+    from jobradar.services.scorer import JobScorer
+    from jobradar.domain.models import ScoredJob
+
+    config = load_config()
+    ai_service = AIService(config)
+    if not ai_service.is_available():
+        raise HTTPException(status_code=503, detail="Gemini AI service is not configured or available.")
+
+    repo = get_repository(config.database_url)
+    try:
+        with repo.pool.connection() as conn:
+            with conn.cursor() as cursor:
+                cursor.execute(
+                    """
+                    SELECT j.*, m.breakdown_json
+                    FROM jobs j
+                    LEFT JOIN scored_matches m ON j.fingerprint = m.job_fingerprint
+                    WHERE j.id = %s;
+                    """,
+                    (job_id,),
+                )
+                row = cursor.fetchone()
+                if not row:
+                    raise HTTPException(status_code=404, detail="Job not found.")
+
+                job = repo._row_to_job(row)
+                breakdown = row.get("breakdown_json") or {}
+                if isinstance(breakdown, str):
+                    try:
+                        breakdown = json.loads(breakdown)
+                    except Exception:
+                        breakdown = {}
+
+                # If already evaluated, return immediately
+                if breakdown.get("ai_insight"):
+                    return {"status": "existing", "ai_insight": breakdown["ai_insight"]}
+
+                # Generate via Gemini AI
+                insight = await asyncio.to_thread(ai_service.evaluate_job_fit, job)
+                if not insight:
+                    raise HTTPException(status_code=500, detail="AI evaluation could not be completed.")
+
+                breakdown["ai_insight"] = insight.model_dump()
+
+                # If scored_matches row exists, update it; else insert
+                cursor.execute(
+                    """
+                    UPDATE scored_matches
+                    SET breakdown_json = %s
+                    WHERE job_fingerprint = %s;
+                    """,
+                    (json.dumps(breakdown), job.fingerprint),
+                )
+                if cursor.rowcount == 0:
+                    scorer = JobScorer(config)
+                    breakdown_obj = scorer.score(job)
+                    scored = ScoredJob(job=job, score_breakdown=breakdown_obj, ai_insight=insight)
+                    repo.save_scored_match(scored)
+
+            conn.commit()
+
+        return {"status": "generated", "ai_insight": breakdown["ai_insight"]}
+    finally:
+        repo.close()
+

@@ -3,13 +3,13 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>JobRadar | Live Tech Career Discovery & Matching Dashboard</title>
-  <meta name="description" content="AI-driven job crawler, multi-track scoring engine, and live career dashboard for Senior Full-Stack, .NET, and Data Engineers.">
+  <title>JobRadar | Executive Career Intelligence & ATS Telemetry</title>
+  <meta name="description" content="AI-augmented job crawler, multi-track scoring engine, and live career intelligence dashboard for Senior Engineers.">
   
-  <!-- Modern Typography from Google Fonts -->
+  <!-- Modern Typography -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   
   <link rel="stylesheet" href="/static/style.css">
 </head>
@@ -19,27 +19,33 @@
   <header class="header">
     <div class="container header-content">
       <div class="logo-group">
-        <div class="logo-badge-icon">🎯</div>
-        <div>
-          <div style="display: flex; align-items: center; gap: 0.5rem;">
-            <h1 class="logo-title">JobRadar</h1>
-          </div>
-          <div class="logo-tagline">ATS Career Matcher · East Africa & Remote</div>
+        <div class="radar-mark">
+          <svg viewBox="0 0 24 24">
+            <path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm0 18a8 8 0 1 1 8-8 8 8 0 0 1-8 8z"></path>
+            <path d="M12 6a6 6 0 1 0 6 6 6 6 0 0 0-6-6zm0 8a2 2 0 1 1 2-2 2 2 0 0 1-2 2z"></path>
+            <path d="M12 2v10l7-7"></path>
+          </svg>
+        </div>
+        <div class="logo-text-block">
+          <h1 class="logo-title">JobRadar<span class="accent">.io</span></h1>
+          <div class="logo-tagline">ENGINEERING INTELLIGENCE · EAST AFRICA & GLOBAL REMOTE</div>
         </div>
       </div>
 
       <div class="header-actions">
         <div class="live-indicator">
           <div class="pulse-dot"></div>
-          <span>Cloud Crawler Active (Every 3h)</span>
+          <span>CRAWLER ACTIVE · EVERY 3H</span>
         </div>
 
-        <button id="refresh-btn" class="btn btn-outline" title="Refresh local view">
-          🔄 Refresh
+        <button id="refresh-btn" class="btn btn-ghost" title="Refresh local feed">
+          <svg viewBox="0 0 24 24"><path d="M23 4v6h-6"></path><path d="M1 20v-6h6"></path><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+          Refresh
         </button>
 
-        <button id="trigger-run-btn" class="btn btn-primary" title="Trigger immediate crawl">
-          ⚡ Run Crawl Now
+        <button id="trigger-run-btn" class="btn btn-primary" title="Trigger instant crawling cycle">
+          <svg viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+          Run Crawl Now
         </button>
       </div>
     </div>
@@ -51,12 +57,12 @@
     <!-- KPI Statistics Grid -->
     <section class="stats-grid" id="stats-section">
       <div class="stat-card" id="card-total-jobs">
-        <div class="stat-label">Total Jobs Ingested</div>
+        <div class="stat-label">Total Ingested</div>
         <div class="stat-value" id="stat-total-jobs">--</div>
       </div>
       <div class="stat-card" id="card-high-matches">
         <div class="stat-label">High Tech Matches (9.0+)</div>
-        <div class="stat-value green" id="stat-high-matches">--</div>
+        <div class="stat-value emerald" id="stat-high-matches">--</div>
       </div>
       <div class="stat-card" id="card-near-misses">
         <div class="stat-label">Near Misses (6.5 - 8.9)</div>
@@ -64,11 +70,11 @@
       </div>
       <div class="stat-card" id="card-active-sources">
         <div class="stat-label">Direct Corporate Portals</div>
-        <div class="stat-value blue" id="stat-active-sources">--</div>
+        <div class="stat-value" id="stat-active-sources">--</div>
       </div>
       <div class="stat-card" id="card-avg-score">
         <div class="stat-label">Top 10 Match Quality</div>
-        <div class="stat-value green" id="stat-avg-score">--</div>
+        <div class="stat-value emerald" id="stat-avg-score">--</div>
       </div>
     </section>
 
@@ -76,37 +82,53 @@
     <section class="filter-panel" id="filter-section">
       <!-- Career Track Tabs -->
       <div class="track-tabs" id="track-tabs-container">
-        <button class="tab-btn active" data-track="all" id="tab-all">🌟 All Tracks</button>
-        <button class="tab-btn" data-track="track_data_engineering" id="tab-data">🗄️ Data Engineering & ETL</button>
-        <button class="tab-btn" data-track="track_dotnet_azure" id="tab-dotnet">🌐 Enterprise C# / .NET Core</button>
-        <button class="tab-btn" data-track="track_modern_backend" id="tab-backend">⚡ Modern Python & Go</button>
-        <button class="tab-btn" data-track="track_fintech_integrations" id="tab-fintech">💳 FinTech & M-Pesa</button>
-        <button class="tab-btn" data-track="track_leadership_qa" id="tab-lead">👔 Leadership & QA Automation</button>
-        <button class="tab-btn" data-track="track_ai_ml" id="tab-ai">🤖 AI & Machine Learning</button>
+        <button class="tab-btn active" data-track="all" id="tab-all">
+          <span class="tab-dot"></span> All Tracks
+        </button>
+        <button class="tab-btn" data-track="track_dotnet_azure" id="tab-dotnet">
+          <span class="tab-dot"></span> Enterprise C# / .NET Core
+        </button>
+        <button class="tab-btn" data-track="track_modern_backend" id="tab-backend">
+          <span class="tab-dot"></span> Modern Python & Go
+        </button>
+        <button class="tab-btn" data-track="track_data_engineering" id="tab-data">
+          <span class="tab-dot"></span> Data Engineering & Pipelines
+        </button>
+        <button class="tab-btn tab-ai" data-track="track_ai_ml" id="tab-ai">
+          <span class="tab-dot"></span> AI & Applied Machine Learning
+        </button>
+        <button class="tab-btn" data-track="track_fintech_integrations" id="tab-fintech">
+          <span class="tab-dot"></span> FinTech & Integrations
+        </button>
+        <button class="tab-btn" data-track="track_leadership_qa" id="tab-lead">
+          <span class="tab-dot"></span> Engineering Leadership & QA
+        </button>
       </div>
 
       <!-- Search and Secondary Filters -->
       <div class="filter-row">
         <div class="search-box">
-          <span class="search-icon">🔍</span>
+          <span class="search-icon">
+            <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+          </span>
           <input 
             type="text" 
             id="search-input" 
             class="search-input" 
-            placeholder="Search by job title, company, technology, or location..."
+            placeholder="Search by role title, company, technology stack, or location..."
             autocomplete="off"
           >
         </div>
 
         <div class="select-group">
           <select id="score-filter" class="filter-select" title="Filter by Score Threshold">
-            <option value="all" selected>🏆 All Scored Postings</option>
-            <option value="matches">🔥 High Matches Only (9.0+)</option>
-            <option value="near_misses">🎯 Near Misses (6.5 - 8.9)</option>
+            <option value="all" selected>All Scored Postings</option>
+            <option value="matches">High Matches Only (9.0+)</option>
+            <option value="near_misses">Near Misses (6.5 - 8.9)</option>
           </select>
 
           <select id="source-filter" class="filter-select" title="Filter by Job Source">
-            <option value="all">🏢 All Sources</option>
+            <option value="all">All Portals & Sources</option>
           </select>
         </div>
       </div>
@@ -114,7 +136,7 @@
 
     <!-- Feed Header -->
     <div class="jobs-feed-header">
-      <div class="feed-count" id="jobs-count-text">Scanning job vacancies...</div>
+      <div class="feed-count" id="jobs-count-text">Scanning telemetry feed...</div>
     </div>
 
     <!-- Ranked Jobs Feed Grid -->
@@ -124,12 +146,12 @@
 
   </main>
 
-  <!-- Explainable Score Breakdown Modal -->
+  <!-- Executive Briefing Modal -->
   <div class="modal-overlay" id="modal-overlay">
     <div class="modal-card" id="modal-card">
       <div class="modal-header">
-        <h3 class="modal-title" id="modal-job-title">Job Audit Details</h3>
-        <button class="modal-close" id="modal-close">&times;</button>
+        <h3 class="modal-title" id="modal-job-title">Role Intelligence Dossier</h3>
+        <button class="modal-close" id="modal-close" aria-label="Close dialog">&times;</button>
       </div>
       <div id="modal-job-content">
         <!-- Injected via JavaScript -->

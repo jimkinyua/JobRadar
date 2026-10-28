@@ -1,5 +1,6 @@
 /**
- * JobRadar Interactive Web Dashboard Application Logic
+ * JobRadar - Executive Career Intelligence Application Logic
+ * Refined Light Slate & Warm Porcelain Design System (Calm, Non-Shouty)
  */
 
 let state = {
@@ -31,8 +32,6 @@ function initEventListeners() {
       btn.classList.add('active');
       state.track = btn.dataset.track;
 
-      // If user switches to a specific persona track, reset score filter to 'all'
-      // so jobs matching the track are immediately visible!
       if (state.track !== 'all') {
         const scoreFilter = document.getElementById('score-filter');
         if (scoreFilter && scoreFilter.value !== 'all') {
@@ -93,7 +92,7 @@ function initEventListeners() {
     refreshBtn.addEventListener('click', () => {
       loadStats();
       loadJobs();
-      showToast('Feed refreshed with latest data!');
+      showToast('Feed refreshed');
     });
   }
 
@@ -106,6 +105,13 @@ function initEventListeners() {
       if (e.target === modalOverlay) modalOverlay.classList.remove('active');
     });
   }
+
+  // Keyboard shortcut: Escape to close modal
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && modalOverlay && modalOverlay.classList.contains('active')) {
+      modalOverlay.classList.remove('active');
+    }
+  });
 }
 
 async function loadStats() {
@@ -132,13 +138,12 @@ async function loadSources() {
     const select = document.getElementById('source-filter');
     if (!select) return;
 
-    // Reset keeping only first option
-    select.innerHTML = '<option value="all">🏢 All Sources</option>';
+    select.innerHTML = '<option value="all">All Portals & Sources</option>';
 
     data.sources.forEach(s => {
       const opt = document.createElement('option');
       opt.value = s.id;
-      opt.textContent = `${s.name} ${s.enabled ? '' : '(Disabled)'}`;
+      opt.textContent = `${s.name} ${s.enabled ? '' : '(Paused)'}`;
       select.appendChild(opt);
     });
   } catch (err) {
@@ -152,9 +157,9 @@ async function loadJobs() {
   if (!container) return;
 
   container.innerHTML = `
-    <div style="text-align: center; padding: 3rem; color: var(--text-dim);">
-      <div class="pulse-dot" style="margin: 0 auto 1rem auto; width: 12px; height: 12px;"></div>
-      Scanning and ranking job postings...
+    <div style="text-align: center; padding: 4rem 1rem; color: var(--text-dim);">
+      <div class="pulse-dot" style="margin: 0 auto 1.25rem auto; width: 8px; height: 8px; background: #94A3B8;"></div>
+      <div style="font-size: 0.85rem; font-family: var(--font-mono); letter-spacing: 0.05em; text-transform: uppercase;">Retrieving job postings...</div>
     </div>
   `;
 
@@ -171,15 +176,16 @@ async function loadJobs() {
     const data = await res.json();
 
     if (countEl) {
-      countEl.innerHTML = `Showing <b>${data.count}</b> ranked job vacancies`;
+      countEl.innerHTML = `Showing <b>${data.count}</b> verified vacancies matching criteria`;
     }
 
     if (!data.jobs || data.jobs.length === 0) {
       container.innerHTML = `
-        <div class="empty-state">
-          <div class="empty-icon">🔍</div>
-          <h3 class="empty-title">No matching jobs found</h3>
-          <p class="empty-desc">Try loosening your track filter, searching for different keywords, or lowering the score threshold.</p>
+        <div style="text-align: center; padding: 4rem 1.5rem; background: var(--bg-surface); border: 1px dashed var(--border-card); border-radius: var(--radius-md); margin: 1rem 0;">
+          <h3 style="font-size: 1.1rem; font-weight: 700; color: var(--text-primary); margin-bottom: 0.35rem;">No matching vacancies found</h3>
+          <p style="font-size: 0.85rem; color: var(--text-muted); max-width: 440px; margin: 0 auto 1.25rem auto; line-height: 1.6;">
+            Try switching to "All Tracks", loosening your keyword query, or resetting the score filter.
+          </p>
           <button class="btn btn-ghost" onclick="resetFilters()">Reset All Filters</button>
         </div>
       `;
@@ -191,14 +197,13 @@ async function loadJobs() {
       currentJobs[j.id] = j;
     });
 
-    container.innerHTML = data.jobs.map((job, idx) => renderJobCard(job, idx)).join('');
+    container.innerHTML = data.jobs.map((job) => renderJobCard(job)).join('');
   } catch (err) {
     console.error('Failed to load jobs:', err);
     container.innerHTML = `
-      <div class="empty-state">
-        <div class="empty-icon">⚠️</div>
-        <h3 class="empty-title">Error loading jobs</h3>
-        <p class="empty-desc">Could not connect to the database API. Check backend service status.</p>
+      <div style="text-align: center; padding: 3rem 1.5rem; background: var(--bg-surface); border: 1px solid var(--border-card); border-radius: var(--radius-md);">
+        <h3 style="font-size: 1.05rem; font-weight: 700; color: var(--text-primary); margin-bottom: 0.35rem;">Unable to load feed</h3>
+        <p style="font-size: 0.825rem; color: var(--text-muted);">Could not reach the database backend. Check service status.</p>
       </div>
     `;
   }
@@ -212,12 +217,13 @@ function renderJobCard(job) {
   if (isMatch) cardClass += ' is-match';
   else if (isNearMiss) cardClass += ' is-near-miss';
 
-  let pillClass = 'score-pill low';
-  let starIcon = '★';
+  let pillHtml = '';
   if (isMatch) {
-    pillClass = 'score-pill match';
+    pillHtml = `<div class="score-pill match"><span>${job.final_score.toFixed(1)}</span> <span style="font-size: 0.65rem; opacity: 0.85;">MATCH</span></div>`;
   } else if (isNearMiss) {
-    pillClass = 'score-pill near-miss';
+    pillHtml = `<div class="score-pill near-miss"><span>${job.final_score.toFixed(1)}</span> <span style="font-size: 0.65rem; opacity: 0.85;">NEAR</span></div>`;
+  } else {
+    pillHtml = `<div class="score-pill low"><span>${job.final_score.toFixed(1)}</span></div>`;
   }
 
   const trackClass = `track-tag ${job.best_track_id || 'general'}`;
@@ -228,16 +234,16 @@ function renderJobCard(job) {
   
   if (breakdown.tech_matches && breakdown.tech_matches.length > 0) {
     breakdown.tech_matches.slice(0, 4).forEach(k => {
-      chips.push(`<span class="chip pos">+ ${escapeHtml(k)}</span>`);
+      chips.push(`<span class="chip pos">✓ ${escapeHtml(k)}</span>`);
     });
   }
 
   if (breakdown.location_bonus > 0) {
-    chips.push(`<span class="chip loc">📍 +${breakdown.location_bonus.toFixed(1)} Location</span>`);
+    chips.push(`<span class="chip loc">+${breakdown.location_bonus.toFixed(1)} Hub</span>`);
   }
 
   if (breakdown.seniority_bonus > 0) {
-    chips.push(`<span class="chip pos">👔 +${breakdown.seniority_bonus.toFixed(1)} Seniority</span>`);
+    chips.push(`<span class="chip pos">+${breakdown.seniority_bonus.toFixed(1)} Seniority</span>`);
   }
 
   const postedText = job.first_seen ? formatRelativeTime(job.first_seen) : 'Recently';
@@ -249,18 +255,18 @@ function renderJobCard(job) {
         <div class="company-meta">
           <span class="company-name">${escapeHtml(job.company)}</span>
           <span class="source-badge">${escapeHtml(formatSourceName(job.source))}</span>
-          <span class="posted-badge">Discovered ${postedText}</span>
+          <span class="posted-badge">${postedText}</span>
         </div>
-        <div class="${pillClass}">
-          <span>${starIcon}</span>
-          <span>${job.final_score.toFixed(1)}</span>
-        </div>
+        ${pillHtml}
       </div>
 
-      <h3 class="job-title">${escapeHtml(job.title)}</h3>
+      <h3 class="job-title" onclick="openJobModal(${job.id}, 'requirements')" style="cursor: pointer;">${escapeHtml(job.title)}</h3>
 
       <div class="job-meta-row">
-        <span class="meta-pill">📍 ${escapeHtml(job.location)}</span>
+        <span class="meta-pill">
+          <svg viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+          ${escapeHtml(job.location)}
+        </span>
         <span class="${trackClass}">${escapeHtml(job.best_track_name || 'General')}</span>
       </div>
 
@@ -271,32 +277,35 @@ function renderJobCard(job) {
       <div class="card-actions">
         <div class="action-buttons-left">
           <button class="btn-toggle-req" id="btn-toggle-${job.id}" onclick="toggleRequirements(${job.id})">
-            📋 View Requirements & Details <span class="req-arrow">▼</span>
+            Details & Requirements <span class="req-arrow">▾</span>
           </button>
           <button class="btn-inspect" onclick="openJobModal(${job.id}, 'breakdown')">
-            📊 Match Breakdown
+            Match Telemetry
           </button>
           ${job.breakdown?.ai_insight ? `
-          <button class="btn-inspect" style="background: rgba(139, 92, 246, 0.1); border-color: rgba(139, 92, 246, 0.35); color: #7C3AED; font-weight: 700;" onclick="openJobModal(${job.id}, 'ai')">
-            ✨ AI Fit (${job.breakdown.ai_insight.semantic_fit_score}%)
-          </button>` : ''}
+          <button class="btn-inspect btn-ai" onclick="openJobModal(${job.id}, 'ai')">
+            ✦ AI Copilot (${job.breakdown.ai_insight.semantic_fit_score}%)
+          </button>` : `
+          <button class="btn-inspect btn-ai" onclick="openJobModal(${job.id}, 'ai')">
+            ✦ AI Copilot
+          </button>`}
         </div>
         <a href="${escapeHtml(job.url)}" target="_blank" rel="noopener noreferrer" class="apply-link">
-          Apply on ${escapeHtml(formatSourceName(job.source))} →
+          Apply on Portal ↗
         </a>
       </div>
 
       <div class="job-req-drawer" id="req-drawer-${job.id}" style="display: none;">
         <div class="job-req-drawer-header">
-          <span class="req-header-title">📋 Full Job Description & Role Requirements</span>
-          <button class="btn-hide-req" onclick="toggleRequirements(${job.id})">Hide ▲</button>
+          <span class="req-header-title">Role Specifications & Requirements</span>
+          <button class="btn-hide-req" onclick="toggleRequirements(${job.id})">Hide ▴</button>
         </div>
         <div class="req-drawer-body">
           ${formatDescriptionHtml(fullDesc)}
         </div>
         <div class="req-drawer-footer">
-          <a href="${escapeHtml(job.url)}" target="_blank" rel="noopener noreferrer" class="btn btn-primary" style="font-size: 0.85rem; padding: 0.45rem 1rem;">
-            Apply Directly on ${escapeHtml(formatSourceName(job.source))} →
+          <a href="${escapeHtml(job.url)}" target="_blank" rel="noopener noreferrer" class="btn btn-primary" style="font-size: 0.8rem; padding: 0.45rem 1rem;">
+            Open Official Vacancy ↗
           </a>
         </div>
       </div>
@@ -313,11 +322,11 @@ function toggleRequirements(jobId) {
   if (isOpen) {
     drawer.style.display = 'none';
     btn.classList.remove('open');
-    btn.innerHTML = `📋 View Requirements & Details <span class="req-arrow">▼</span>`;
+    btn.innerHTML = `Details & Requirements <span class="req-arrow">▾</span>`;
   } else {
     drawer.style.display = 'block';
     btn.classList.add('open');
-    btn.innerHTML = `📋 Hide Requirements & Details <span class="req-arrow">▲</span>`;
+    btn.innerHTML = `Hide Details <span class="req-arrow">▴</span>`;
   }
 }
 
@@ -333,125 +342,153 @@ function openJobModal(jobId, initialTab = 'requirements') {
 
   title.textContent = `${job.title} · ${job.company}`;
 
+  const aiInsight = job.breakdown?.ai_insight;
+
   content.innerHTML = `
     <div class="modal-nav-tabs">
       <button class="modal-nav-btn ${initialTab === 'requirements' ? 'active' : ''}" id="modal-tab-req" onclick="switchModalTab('requirements')">
-        📋 Full Requirements
+        Role Requirements
       </button>
       <button class="modal-nav-btn ${initialTab === 'breakdown' ? 'active' : ''}" id="modal-tab-score" onclick="switchModalTab('breakdown')">
-        📊 Scoring Breakdown
+        Match Telemetry
       </button>
-      ${job.breakdown?.ai_insight ? `
-      <button class="modal-nav-btn ${initialTab === 'ai' ? 'active' : ''}" id="modal-tab-ai" onclick="switchModalTab('ai')" style="background: rgba(139, 92, 246, 0.1); border-color: rgba(139, 92, 246, 0.4); color: #7C3AED; font-weight: 700;">
-        ✨ AI Career Copilot (${job.breakdown.ai_insight.semantic_fit_score}%)
-      </button>` : ''}
+      <button class="modal-nav-btn modal-tab-ai ${initialTab === 'ai' ? 'active' : ''}" id="modal-tab-ai" onclick="switchModalTab('ai')">
+        ✦ AI Copilot ${aiInsight ? `(${aiInsight.semantic_fit_score}%)` : ''}
+      </button>
     </div>
 
+    <!-- Pane 1: Role Requirements -->
     <div id="modal-pane-requirements" style="display: ${initialTab === 'requirements' ? 'block' : 'none'};">
-      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; padding: 0.85rem 1.1rem; background: var(--bg-subtle); border-radius: var(--radius-md);">
+      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.25rem; padding: 0.75rem 1rem; background: var(--bg-subtle); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); font-size: 0.8rem;">
         <div>
-          <span style="font-size: 0.85rem; color: var(--text-muted);">Source: <b>${escapeHtml(formatSourceName(job.source))}</b></span>
-          <span style="margin: 0 0.5rem; color: var(--border-light);">|</span>
-          <span style="font-size: 0.85rem; color: var(--text-muted);">Location: <b>${escapeHtml(job.location)}</b></span>
+          <span style="color: var(--text-muted);">Source: <b style="color: var(--text-primary);">${escapeHtml(formatSourceName(job.source))}</b></span>
+          <span style="margin: 0 0.5rem; color: var(--border-subtle);">|</span>
+          <span style="color: var(--text-muted);">Location: <b style="color: var(--text-primary);">${escapeHtml(job.location)}</b></span>
         </div>
         <span class="track-tag ${job.best_track_id || 'general'}">${escapeHtml(job.best_track_name || 'General')}</span>
       </div>
 
-      <div class="req-drawer-body" style="max-height: 52vh; padding-right: 0.75rem;">
+      <div class="req-drawer-body" style="max-height: 50vh; padding-right: 0.5rem;">
         ${formatDescriptionHtml(job.full_description || job.description)}
       </div>
 
-      <div style="margin-top: 1.5rem; display: flex; justify-content: flex-end; gap: 0.75rem; padding-top: 1rem; border-top: 1px solid var(--border-light);">
-        <button class="btn btn-ghost" onclick="switchModalTab('breakdown')">View Score Breakdown 📊</button>
+      <div style="margin-top: 1.5rem; display: flex; justify-content: flex-end; gap: 0.75rem; padding-top: 1rem; border-top: 1px solid var(--border-subtle);">
+        <button class="btn btn-ghost" onclick="switchModalTab('breakdown')">Match Telemetry →</button>
         <a href="${escapeHtml(job.url)}" target="_blank" rel="noopener noreferrer" class="btn btn-primary">
-          Apply on ${escapeHtml(formatSourceName(job.source))} →
+          Apply on Portal ↗
         </a>
       </div>
     </div>
 
+    <!-- Pane 2: Match Architecture Telemetry -->
     <div id="modal-pane-breakdown" style="display: ${initialTab === 'breakdown' ? 'block' : 'none'};">
-      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.25rem; padding: 1.2rem; background: var(--bg-subtle); border-radius: var(--radius-lg); border: 1px solid var(--border-light);">
+      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.25rem; padding: 1.2rem; background: var(--bg-surface); border-radius: var(--radius-md); border: 1px solid var(--border-card);">
         <div>
-          <div style="font-family: var(--font-mono); font-size: 0.725rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em;">Best Matched Persona Track</div>
-          <div style="font-size: 1.15rem; font-weight: 800; color: var(--text-headline);">${escapeHtml(job.best_track_name || 'General')}</div>
+          <div style="font-size: 0.7rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; font-family: var(--font-mono);">Evaluated Persona Track</div>
+          <div style="font-size: 1.15rem; font-weight: 800; color: var(--text-primary);">${escapeHtml(job.best_track_name || 'General Tech')}</div>
         </div>
         <div style="text-align: right;">
-          <div style="font-family: var(--font-mono); font-size: 0.725rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em;">Match Score</div>
-          <div style="font-size: 1.75rem; font-weight: 800; font-family: var(--font-mono); color: var(--brand-green);">${job.final_score.toFixed(1)}</div>
+          <div style="font-size: 0.7rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; font-family: var(--font-mono);">Match Score</div>
+          <div style="font-size: 1.75rem; font-weight: 800; font-family: var(--font-mono); color: #15803D;">${job.final_score.toFixed(1)}</div>
         </div>
       </div>
 
-      <h4 style="font-family: var(--font-mono); font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.6rem; color: var(--text-muted);">Scoring Formula:</h4>
-      <div style="background: #FFFFFF; border: 1.5px solid var(--border-light); border-radius: var(--radius-md); padding: 1.1rem; font-family: var(--font-mono); font-size: 0.85rem; line-height: 2;">
-        <div>• Track Tech Score: <b style="color: var(--brand-green);">+${(job.breakdown?.best_track_score || 0).toFixed(1)}</b></div>
-        <div>• Location Bonus: <b style="color: var(--brand-green);">+${(job.breakdown?.location_bonus || 0).toFixed(1)}</b> (${escapeHtml(job.location)})</div>
-        <div>• Seniority Bonus: <b style="color: var(--brand-green);">+${(job.breakdown?.seniority_bonus || 0).toFixed(1)}</b></div>
-        <div>• Penalties Deducted: <b style="color: #DC2626;">-${(job.breakdown?.penalties || 0).toFixed(1)}</b></div>
+      <div style="font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem; color: var(--text-muted); font-family: var(--font-mono);">Scoring Weights & Criteria:</div>
+      <div class="telemetry-grid">
+        <div class="telemetry-item">
+          <div class="telemetry-label">Track Tech Match</div>
+          <div class="telemetry-value">+${(job.breakdown?.best_track_score || 0).toFixed(1)}</div>
+        </div>
+        <div class="telemetry-item">
+          <div class="telemetry-label">Location Proximity (${escapeHtml(job.location)})</div>
+          <div class="telemetry-value">+${(job.breakdown?.location_bonus || 0).toFixed(1)}</div>
+        </div>
+        <div class="telemetry-item">
+          <div class="telemetry-label">Seniority Tier Alignment</div>
+          <div class="telemetry-value">+${(job.breakdown?.seniority_bonus || 0).toFixed(1)}</div>
+        </div>
+        <div class="telemetry-item">
+          <div class="telemetry-label">Disqualification Penalties</div>
+          <div class="telemetry-value ${(job.breakdown?.penalties || 0) > 0 ? 'negative' : ''}">-${(job.breakdown?.penalties || 0).toFixed(1)}</div>
+        </div>
       </div>
 
-      <h4 style="font-family: var(--font-mono); font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; margin: 1.25rem 0 0.6rem 0; color: var(--text-muted);">Matched Track Keywords:</h4>
-      <div style="display: flex; flex-wrap: wrap; gap: 0.5rem;">
-        ${(job.breakdown?.tech_matches || []).map(k => `<span class="chip pos" style="font-size: 0.825rem; padding: 0.35rem 0.75rem;">✓ ${escapeHtml(k)}</span>`).join('') || '<span style="color: var(--text-dim); font-size: 0.85rem;">None</span>'}
+      <div style="font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; margin: 1.25rem 0 0.5rem 0; color: var(--text-muted); font-family: var(--font-mono);">Verified Profile Keywords:</div>
+      <div style="display: flex; flex-wrap: wrap; gap: 0.4rem;">
+        ${(job.breakdown?.tech_matches || []).map(k => `<span class="chip pos" style="font-size: 0.8rem; padding: 0.35rem 0.7rem;">✓ ${escapeHtml(k)}</span>`).join('') || '<span style="color: var(--text-dim); font-size: 0.825rem;">None</span>'}
       </div>
 
-      <div style="margin-top: 1.5rem; display: flex; justify-content: flex-end; gap: 0.75rem; padding-top: 1rem; border-top: 1px solid var(--border-light);">
-        <button class="btn btn-ghost" onclick="switchModalTab('requirements')">← Read Full Requirements</button>
-        <a href="${escapeHtml(job.url)}" target="_blank" rel="noopener noreferrer" class="btn btn-primary">
-          View Official Vacancy →
-        </a>
+      <div style="margin-top: 1.5rem; display: flex; justify-content: flex-end; gap: 0.75rem; padding-top: 1rem; border-top: 1px solid var(--border-subtle);">
+        <button class="btn btn-ghost" onclick="switchModalTab('requirements')">← Requirements</button>
+        <button class="btn btn-ghost" onclick="switchModalTab('ai')" style="color: var(--copilot-text);">✦ Open AI Copilot</button>
       </div>
     </div>
 
+    <!-- Pane 3: AI Career Copilot -->
     <div id="modal-pane-ai" style="display: ${initialTab === 'ai' ? 'block' : 'none'};">
-      ${job.breakdown?.ai_insight ? `
-      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.25rem; padding: 1.2rem; background: linear-gradient(135deg, rgba(139, 92, 246, 0.08), rgba(59, 130, 246, 0.05)); border-radius: var(--radius-lg); border: 1px solid rgba(139, 92, 246, 0.25);">
+      ${aiInsight ? `
+      <div class="dossier-card ai-highlight" style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.25rem;">
         <div>
-          <div style="font-family: var(--font-mono); font-size: 0.725rem; font-weight: 700; color: #7C3AED; text-transform: uppercase; letter-spacing: 0.05em;">AI Semantic Persona Match</div>
-          <div style="font-size: 1.15rem; font-weight: 800; color: var(--text-headline);">Candidate Profile Alignment</div>
+          <div style="font-size: 0.7rem; font-weight: 700; color: var(--copilot-text); text-transform: uppercase; letter-spacing: 0.05em; font-family: var(--font-mono);">Executive Dossier</div>
+          <div style="font-size: 1.15rem; font-weight: 800; color: var(--text-primary);">Semantic Profile Alignment</div>
         </div>
         <div style="text-align: right;">
-          <div style="font-family: var(--font-mono); font-size: 0.725rem; font-weight: 700; color: #7C3AED; text-transform: uppercase; letter-spacing: 0.05em;">Fit Score</div>
-          <div style="font-size: 1.85rem; font-weight: 800; font-family: var(--font-mono); color: #7C3AED;">${job.breakdown.ai_insight.semantic_fit_score}%</div>
+          <div style="font-size: 0.7rem; font-weight: 700; color: var(--copilot-text); text-transform: uppercase; letter-spacing: 0.05em; font-family: var(--font-mono);">Fit Score</div>
+          <div style="font-size: 1.95rem; font-weight: 800; font-family: var(--font-mono); color: var(--copilot-text);">${aiInsight.semantic_fit_score}%</div>
         </div>
       </div>
 
       <div style="margin-bottom: 1.25rem;">
-        <h4 style="font-family: var(--font-mono); font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem; color: var(--text-muted);">💡 Why You Match:</h4>
-        <div style="background: var(--bg-card); border: 1px solid var(--border-light); border-radius: var(--radius-md); padding: 1rem; font-size: 0.9rem; line-height: 1.6; color: var(--text-headline);">
-          ${escapeHtml(job.breakdown.ai_insight.fit_rationale)}
+        <div style="font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.45rem; color: var(--text-muted); font-family: var(--font-mono);">Strategic Fit Thesis:</div>
+        <div style="background: var(--bg-surface); border: 1px solid var(--border-card); border-radius: var(--radius-sm); padding: 1rem 1.15rem; font-size: 0.875rem; line-height: 1.65; color: var(--text-secondary);">
+          ${escapeHtml(aiInsight.fit_rationale)}
         </div>
       </div>
 
-      ${(job.breakdown.ai_insight.skill_gaps || []).length > 0 ? `
+      ${(aiInsight.key_strengths || []).length > 0 ? `
       <div style="margin-bottom: 1.25rem;">
-        <h4 style="font-family: var(--font-mono); font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem; color: #DC2626;">⚠️ Skill Gaps to Prepare:</h4>
-        <div style="display: flex; flex-wrap: wrap; gap: 0.5rem;">
-          ${job.breakdown.ai_insight.skill_gaps.map(g => `<span class="chip neg" style="font-size: 0.8rem; padding: 0.35rem 0.65rem;">${escapeHtml(g)}</span>`).join('')}
+        <div style="font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.45rem; color: var(--text-muted); font-family: var(--font-mono);">Key Leverage Strengths:</div>
+        <div style="display: flex; flex-wrap: wrap; gap: 0.4rem;">
+          ${aiInsight.key_strengths.map(s => `<span class="chip pos" style="font-size: 0.8rem; padding: 0.35rem 0.65rem;">✓ ${escapeHtml(s)}</span>`).join('')}
         </div>
       </div>` : ''}
 
-      ${job.breakdown.ai_insight.tailored_pitch ? `
-      <div style="margin-bottom: 1.5rem;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
-          <h4 style="font-family: var(--font-mono); font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted);">🚀 Tailored CV / Cover Letter Pitch:</h4>
-          <button id="copy-pitch-btn" class="btn btn-ghost" style="font-size: 0.75rem; padding: 0.25rem 0.6rem;" onclick="copyTailoredPitch(${job.id})">📋 Copy Pitch</button>
+      ${(aiInsight.skill_gaps || []).length > 0 ? `
+      <div style="margin-bottom: 1.25rem;">
+        <div style="font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.45rem; color: var(--advisory-text); font-family: var(--font-mono);">Interview Preparation & Tech Gaps:</div>
+        <div style="display: flex; flex-wrap: wrap; gap: 0.4rem;">
+          ${aiInsight.skill_gaps.map(g => `<span class="chip neg" style="font-size: 0.8rem; padding: 0.35rem 0.65rem;">! ${escapeHtml(g)}</span>`).join('')}
         </div>
-        <div id="pitch-text-${job.id}" style="background: #F8FAFC; border: 1.5px dashed rgba(139, 92, 246, 0.4); border-radius: var(--radius-md); padding: 1.1rem; font-style: italic; font-size: 0.875rem; line-height: 1.6; color: var(--text-headline);">
-          "${escapeHtml(job.breakdown.ai_insight.tailored_pitch)}"
+      </div>` : ''}
+
+      ${aiInsight.tailored_pitch ? `
+      <div style="margin-bottom: 1.25rem;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.45rem;">
+          <div style="font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); font-family: var(--font-mono);">Tailored Executive Elevator Pitch:</div>
+          <button id="copy-pitch-btn" class="btn btn-ghost" style="font-size: 0.725rem; padding: 0.2rem 0.6rem;" onclick="copyTailoredPitch(${job.id})">
+            📋 Copy Pitch
+          </button>
+        </div>
+        <div class="pitch-memo-box" id="pitch-text-${job.id}">
+          "${escapeHtml(aiInsight.tailored_pitch)}"
         </div>
       </div>` : ''}
       ` : `
-      <div class="empty-state" style="padding: 2rem;">
-        <div class="empty-icon">🤖</div>
-        <h4 class="empty-title">AI Insight Not Generated Yet</h4>
-        <p class="empty-desc">This job has not been evaluated by Gemini AI yet.</p>
+      <div id="ai-generate-container-${job.id}" style="text-align: center; padding: 2.75rem 1.5rem; background: var(--bg-subtle); border: 1.5px dashed var(--copilot-border); border-radius: var(--radius-md);">
+        <h3 style="font-size: 1.15rem; font-weight: 800; color: var(--text-primary); margin-bottom: 0.4rem;">Generate AI Career Dossier</h3>
+        <p style="font-size: 0.85rem; color: var(--text-muted); max-width: 480px; margin: 0 auto 1.5rem auto; line-height: 1.6;">
+          Execute deep semantic profile alignment, uncover interview prep gaps, and generate a tailored CV elevator pitch for this role.
+        </p>
+        <button id="btn-run-ai-${job.id}" class="btn btn-primary" style="padding: 0.65rem 1.5rem; font-size: 0.875rem; font-weight: 700;" onclick="runAiEvaluation(${job.id})">
+          ✦ Run AI Fit Evaluation
+        </button>
       </div>
       `}
 
-      <div style="margin-top: 1.5rem; display: flex; justify-content: flex-end; gap: 0.75rem; padding-top: 1rem; border-top: 1px solid var(--border-light);">
-        <button class="btn btn-ghost" onclick="switchModalTab('requirements')">← Read Full Requirements</button>
+      <div style="margin-top: 1.5rem; display: flex; justify-content: flex-end; gap: 0.75rem; padding-top: 1rem; border-top: 1px solid var(--border-subtle);">
+        <button class="btn btn-ghost" onclick="switchModalTab('requirements')">← Requirements</button>
         <a href="${escapeHtml(job.url)}" target="_blank" rel="noopener noreferrer" class="btn btn-primary">
-          View Official Vacancy →
+          Apply on Portal ↗
         </a>
       </div>
     </div>
@@ -494,11 +531,56 @@ function switchModalTab(tabName) {
 
 function copyTailoredPitch(jobId) {
   const pitchElem = document.getElementById(`pitch-text-${jobId}`);
+  const copyBtn = document.getElementById('copy-pitch-btn');
   if (!pitchElem) return;
   const text = pitchElem.innerText.replace(/^"|"$/g, '').trim();
   navigator.clipboard.writeText(text).then(() => {
-    showToast('🚀 Tailored pitch copied to clipboard!');
+    if (copyBtn) copyBtn.textContent = '✓ Copied!';
+    showToast('Pitch copied to clipboard');
+    setTimeout(() => {
+      if (copyBtn) copyBtn.textContent = '📋 Copy Pitch';
+    }, 2500);
   });
+}
+
+async function runAiEvaluation(jobId) {
+  const btn = document.getElementById(`btn-run-ai-${jobId}`);
+  if (!btn) return;
+
+  btn.disabled = true;
+  btn.innerHTML = `<span class="pulse-dot" style="display:inline-block; margin-right: 8px;"></span> Evaluating via Gemini AI...`;
+
+  try {
+    const res = await fetch(`/api/jobs/${jobId}/ai-evaluate`, { method: 'POST' });
+    if (!res.ok) {
+      const errData = await res.json().catch(() => ({}));
+      throw new Error(errData.detail || 'Evaluation request failed');
+    }
+    const data = await res.json();
+    if (data.ai_insight) {
+      if (!currentJobs[jobId]) currentJobs[jobId] = {};
+      if (!currentJobs[jobId].breakdown) currentJobs[jobId].breakdown = {};
+      currentJobs[jobId].breakdown.ai_insight = data.ai_insight;
+
+      showToast(`AI fit evaluated: ${data.ai_insight.semantic_fit_score}% match`);
+
+      // Re-render modal in AI tab
+      openJobModal(jobId, 'ai');
+
+      // Update the job card in the background feed
+      const card = document.getElementById(`job-card-${jobId}`);
+      if (card) {
+        const temp = document.createElement('div');
+        temp.innerHTML = renderJobCard(currentJobs[jobId]);
+        card.replaceWith(temp.firstElementChild);
+      }
+    }
+  } catch (err) {
+    console.error('AI evaluation failed:', err);
+    btn.disabled = false;
+    btn.innerHTML = `Evaluation Failed - Click to Retry`;
+    showToast(`AI evaluation failed: ${err.message}`, true);
+  }
 }
 
 async function handleTriggerRun() {
@@ -515,14 +597,14 @@ async function handleTriggerRun() {
     if (res.ok) {
       const checked = data.summary?.sources_checked || 0;
       const matches = data.summary?.matches_found || 0;
-      showToast(`Crawl completed! Checked ${checked} sources, found ${matches} matches.`);
+      showToast(`Crawl complete · Checked ${checked} sources · Found ${matches} matches`);
       loadStats();
       loadJobs();
     } else {
-      showToast('Crawl encountered an issue: ' + (data.detail || 'Error'), true);
+      showToast('Crawl error: ' + (data.detail || 'Error'), true);
     }
   } catch (err) {
-    showToast('Failed to trigger crawl.', true);
+    showToast('Failed to trigger crawler pipeline', true);
   } finally {
     btn.disabled = false;
     btn.innerHTML = originalHtml;
@@ -554,9 +636,7 @@ function resetFilters() {
 function formatDescriptionHtml(text) {
   if (!text) return '<p style="color: var(--text-dim);">No detailed description provided.</p>';
   
-  // If text already contains HTML paragraph/list tags
   if (/<[a-z][\s\S]*>/i.test(text)) {
-    // Basic sanitization: strip script/iframe tags
     let clean = text
       .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
       .replace(/<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi, '')
@@ -564,7 +644,6 @@ function formatDescriptionHtml(text) {
     return clean;
   }
 
-  // Convert plain text with newlines and bullets into clean semantic HTML
   const lines = text.split(/\r?\n/);
   let html = '';
   let inList = false;
@@ -579,7 +658,6 @@ function formatDescriptionHtml(text) {
       return;
     }
 
-    // Check for bullet points
     if (/^[-*•]\s+/.test(trimmed)) {
       if (!inList) {
         html += '<ul>';
@@ -613,7 +691,7 @@ function formatSourceName(sourceId) {
     'watu_credit': 'Watu Credit',
     'davis_shirtliff': 'Davis & Shirtliff',
     'britam': 'Britam Insurance',
-    'coop_bank': 'Co-op Bank',
+    'coop_bank': 'Co-op Bank Careers',
     'ncba_bank': 'NCBA Group',
     'kpmg_east_africa': 'KPMG East Africa',
     'deloitte_smartrecruiters': 'Deloitte East Africa',
@@ -658,10 +736,10 @@ function showToast(message, isError = false) {
   if (!toast) return;
 
   toast.textContent = message;
-  toast.style.borderColor = isError ? '#EF4444' : 'var(--brand-green)';
-  toast.classList.add('active');
+  toast.style.borderColor = isError ? 'var(--advisory-border)' : 'var(--border-subtle)';
+  toast.classList.add('show');
 
   setTimeout(() => {
-    toast.classList.remove('active');
-  }, 4000);
+    toast.classList.remove('show');
+  }, 3500);
 }

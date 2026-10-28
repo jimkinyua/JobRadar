@@ -70,3 +70,54 @@ async def test_get_sources_api_endpoint():
     source_ids = [s["id"] for s in result["sources"]]
     assert "coop_bank" in source_ids
     assert "kpmg_east_africa" in source_ids
+
+
+@pytest.mark.anyio
+async def test_evaluate_job_ai_endpoint():
+    """Verify that /api/jobs/{job_id}/ai-evaluate evaluates fit via Gemini."""
+    from jobradar.web.app import evaluate_job_ai
+    from jobradar.domain.models import AICopilotInsight, Job
+
+    mock_insight = AICopilotInsight(
+        semantic_fit_score=94,
+        fit_rationale="Great profile alignment",
+        key_strengths=["Python", "C#"],
+        skill_gaps=[],
+        tailored_pitch="Proven track record",
+    )
+
+    mock_job = Job(
+        title="Senior AI Engineer",
+        company="Co-op Bank",
+        url="https://example.com/job",
+        location="Nairobi",
+        description="Build LLM systems",
+        source="coop_bank",
+    )
+
+    mock_repo = MagicMock()
+    mock_cursor = MagicMock()
+    mock_cursor.fetchone.return_value = {
+        "id": 10,
+        "title": "Senior AI Engineer",
+        "company": "Co-op Bank",
+        "url": "https://example.com/job",
+        "location": "Nairobi",
+        "description": "Build LLM systems",
+        "source": "coop_bank",
+        "fingerprint": "abc12345",
+        "breakdown_json": None,
+    }
+    mock_cursor.rowcount = 1
+    mock_conn = MagicMock()
+    mock_conn.cursor.return_value.__enter__.return_value = mock_cursor
+    mock_repo.pool.connection.return_value.__enter__.return_value = mock_conn
+    mock_repo._row_to_job.return_value = mock_job
+
+    with patch("jobradar.web.app.get_repository", return_value=mock_repo), \
+         patch("jobradar.services.ai_service.AIService.is_available", return_value=True), \
+         patch("jobradar.services.ai_service.AIService.evaluate_job_fit", return_value=mock_insight):
+        res = await evaluate_job_ai(10)
+        assert res["status"] == "generated"
+        assert res["ai_insight"]["semantic_fit_score"] == 94
+
