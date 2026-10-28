@@ -1,0 +1,32 @@
+# ==============================================================================
+# Candidate Master Profile for JobRadar AI Semantic Fit & Gap Analysis
+# ==============================================================================
+candidate:
+  name: "James Kinyua"
+  title: "Senior Backend & Data Engineer"
+  years_experience: 5
+  target_roles:
+    - "AI Application Engineer"
+    - "Senior Data Engineer"
+    - "Senior Backend Engineer (.NET / Python / Go)"
+    - "Cloud Solutions Architect"
+  core_skills:
+    - "Python"
+    - "FastAPI"
+    - "PostgreSQL"
+    - "Apache Kafka"
+    - "Data Pipelines / ETL / Medallion Architecture"
+    - ".NET / C#"
+    - "Docker"
+    - "REST APIs & Microservices"
+  familiar_tools:
+    - "PyTorch"
+    - "LangChain"
+    - "RAG Architectures"
+    - "Vector Databases"
+    - "Azure"
+    - "Linux"
+  experience_summary: >
+    Experienced software engineer specializing in designing and deploying end-to-end data
+    ingestion pipelines, high-throughput microservices, and database solutions.
+    Skilled in Python, PostgreSQL Medallion architecture, and cloud integrations.
