@@ -128,6 +128,24 @@ scoring:
         qa: 2.0
         full stack: 3.0
 
+    track_ai_ml:
+      name: "AI & Machine Learning Engineering"
+      keywords:
+        ai: 3.0
+        llm: 4.0
+        rag: 3.0
+        embeddings: 3.0
+        langchain: 3.0
+        langgraph: 3.0
+        agents: 3.0
+        pytorch: 3.0
+        fine-tuning: 3.0
+        vector database: 3.0
+        data scientist: 3.0
+        machine learning: 3.0
+        deep learning: 3.0
+        artificial intelligence: 3.0
+
 # ------------------------------------------------------------------------------
 # Source Ingestion & Health Check Thresholds
 # ------------------------------------------------------------------------------
@@ -211,12 +229,12 @@ sources:
   - id: "coop_bank"
     name: "Co-operative Bank of Kenya Careers"
     type: "html"
-    url: "https://www.co-opbank.co.ke/careers/"
+    url: "https://www.co-opbank.co.ke/career_tax/co-op-bank/"
     enabled: true
     selectors:
-      item: ".career-item, .job-listing, article, tr"
-      title: "h3, h4, .title, a"
-      link: "a"
+      item: ".rounded-lg.shadow-lg, .career-item, article"
+      title: "p.text-2xl, .text-primary, h3, h4, .title"
+      link: "a[href*='/careers/'], a"
       location: ".location"
       description: "p, .summary"
 

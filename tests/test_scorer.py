@@ -103,3 +103,21 @@ def test_near_miss_detection(scorer: JobScorer):
     if 6.0 <= breakdown.final_score < 8.0:
         assert breakdown.is_near_miss is True
         assert breakdown.is_match is False
+
+
+def test_score_ai_ml_engineering_track(scorer: JobScorer):
+    job = Job(
+        title="AI Application Engineer",
+        company="Co-operative Bank of Kenya",
+        url="https://www.co-opbank.co.ke/careers/co-op-bank/ai-application-engineer/",
+        location="Nairobi, Kenya",
+        description="Developing LLM applications, RAG pipelines, fine-tuning, and integrating vector databases using LangChain and PyTorch.",
+        source="coop_bank",
+    )
+    breakdown = scorer.score(job)
+
+    assert breakdown.is_match is True
+    assert breakdown.best_track_id == "track_ai_ml"
+    assert breakdown.track_score >= 10.0
+    assert breakdown.final_score >= 12.0
+

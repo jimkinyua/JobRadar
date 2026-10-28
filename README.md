@@ -22,6 +22,7 @@
                       │  - Fault-isolated source execution           │
                       │  - Robots.txt compliance & 2s rate limit     │
                       │  - ATS sniffer (Employer discovery)          │
+                      │  ★ AI Fallback Extractor (Gemini 2.0 Flash)  │
                       └──────────────────────┬───────────────────────┘
                                              │
                                              ▼
@@ -45,36 +46,56 @@
                                              │
                                              ▼
                       ┌──────────────────────────────────────────────┐
-                      │    🥇 Gold Layer: Multi-Track Scoring        │
+                      │    🥇 Gold Layer: Multi-Track Scoring & AI   │
                       │  Table: `scored_matches`                     │
                       │  - Multi-Persona weighted keyword scoring    │
-                      │  - Explainable JSON audit breakdown          │
-                      │  - Disqualification gatekeeper filters       │
+                      │  ★ AI Career Copilot (Gemini 2.0 Flash)      │
+                      │    • Semantic Fit & Match Rationale          │
+                      │    • Candidate Skill Gap Analysis            │
+                      │    • Tailored CV Bullet Point Generation     │
                       │  - Location & Seniority multipliers          │
                       └──────────────────────┬───────────────────────┘
                                              │
                                              ▼
                       ┌──────────────────────────────────────────────┐
                       │          Serving & Observability             │
-                      │  - Telegram Alerts (HTML-safe, top 15)       │
+                      │  - Telegram Alerts (with AI Briefing & Gaps) │
                       │  - Weekly Monday Near-Miss Digest (min-2)    │
                       │  - 3-Day Deadline Reminders                  │
                       │  - Source Health Anomaly Alerts (>50% drop)  │
+                      │  - Web UI Dashboard with Match Breakdown     │
                       │  - Two-way Telegram bot commands (/add, /ign)│
                       └──────────────────────────────────────────────┘
 ```
 
 ---
 
+## 🤖 Why AI in JobRadar? (Architectural Rationale)
+
+While deterministic Python and PostgreSQL handle the data engineering backbone, traditional rules-based systems fail at two critical edges:
+
+1. **Self-Healing Ingestion (Brittle HTML Scrapers)**:
+   - *Problem*: Traditional CSS selectors fail whenever corporate career portals (e.g. Co-operative Bank of Kenya) adjust their DOM classes or render non-standard markup.
+   - *AI Solution*: When CSS selectors extract 0 items from an active job page, JobRadar engages **Gemini 2.0 Flash** as a schema-constrained fallback extractor, converting unstructured HTML directly into validated Pydantic job entities.
+2. **Contextual Semantic Matching (Beyond Flat Keywords)**:
+   - *Problem*: Keyword counts miss semantic nuance (e.g., scoring *"Junior Sales Rep for Kafka software"* while missing *"Architect for high-throughput distributed event streams"*).
+   - *AI Solution*: High-scoring matches are enriched by an **AI Career Copilot** that evaluates role requirements against your master profile, producing:
+     - **Semantic Fit Rationale**: Plain-English explanation of why the role matches your career trajectory.
+     - **Skill Gap Analysis**: Pinpointing missing prerequisites (e.g., required tools or certifications).
+     - **Tailored Application Pitch**: Custom bullet points crafted specifically for that role's problem domain.
+
+---
+
 ## 🎯 Scoring Strategy: Multi-Track Persona Matching
 
-Rather than a single flat keyword score that over-indexes on one technology, `job-radar` scores jobs across **5 distinct professional tracks** and selects the best matching persona:
+Rather than a single flat keyword score that over-indexes on one technology, `job-radar` scores jobs across **6 distinct professional tracks** and selects the best matching persona:
 
 1. **Track A: Data Engineering & Streaming** (`kafka`, `etl`, `data engineer`, `sql`, `azure data factory`, `spark`, `pipeline`)
 2. **Track B: Enterprise Cloud & .NET** (`.net`, `c#`, `asp.net`, `azure`, `functions`, `logic apps`, `entra id`)
 3. **Track C: Modern Backend (Python / Go / Laravel)** (`python`, `golang`, `go`, `laravel`, `php`, `fastapi`, `django`, `rest api`)
 4. **Track D: FinTech & System Integrations (Kenya / EMEA)** (`etims`, `tax`, `m-pesa`, `payments`, `integration`, `fintech`, `banking`)
 5. **Track E: Engineering Leadership & Architecture** (`tech lead`, `team lead`, `architect`, `staff engineer`, `qa automation`)
+6. **Track F: AI & Machine Learning Engineering** (`llm`, `rag`, `embeddings`, `langchain`, `langgraph`, `fine-tuning`, `pytorch`, `agents`, `vector database`)
 
 $$\text{Final Score} = \max(\text{Track Scores}) + \text{Location Multipliers} + \text{Seniority Multipliers} - \text{Disqualifiers}$$
 
