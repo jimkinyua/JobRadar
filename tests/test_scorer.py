@@ -121,3 +121,36 @@ def test_score_ai_ml_engineering_track(scorer: JobScorer):
     assert breakdown.track_score >= 10.0
     assert breakdown.final_score >= 12.0
 
+
+def test_score_fullstack_web_track(scorer: JobScorer):
+    job = Job(
+        title="Senior Full-Stack Engineer",
+        company="Global FinTech",
+        url="https://example.com/jobs/fullstack",
+        location="Remote, Kenya",
+        description="Looking for an experienced engineer in TypeScript, Next.js, React, Node.js, and GraphQL web application development.",
+        source="example",
+    )
+    breakdown = scorer.score(job)
+
+    assert breakdown.is_match is True
+    assert breakdown.best_track_id == "track_fullstack_web"
+    assert breakdown.final_score >= 10.0
+
+
+def test_score_platform_devops_track(scorer: JobScorer):
+    job = Job(
+        title="Senior Platform & DevOps Engineer",
+        company="Cloud Services Ltd",
+        url="https://example.com/jobs/devops",
+        location="Nairobi, Kenya",
+        description="Responsible for Kubernetes cluster orchestration, Terraform infrastructure as code, CI/CD with GitHub Actions, and AWS cloud reliability.",
+        source="example",
+    )
+    breakdown = scorer.score(job)
+
+    assert breakdown.is_match is True
+    assert breakdown.best_track_id == "track_platform_devops"
+    assert breakdown.final_score >= 10.0
+
+

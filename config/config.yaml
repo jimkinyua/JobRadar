@@ -6,10 +6,12 @@ pipeline:
   name: "jobradar"
   version: "0.1.0"
   min_score: 8.0
+  alert_min_score: 9.0  # High-signal threshold: Only send instant Telegram alerts for elite matches (>=9.0)
   near_miss_delta: 2.0  # Jobs within [min_score - 2, min_score] qualify for Monday digest
   max_alerts_per_run: 15
   initial_run_baseline_alerts: 10
   deadline_reminder_days: 3
+
 
 # ------------------------------------------------------------------------------
 # Scoring Engine: Multi-Track Persona System
@@ -146,8 +148,51 @@ scoring:
         deep learning: 3.0
         artificial intelligence: 3.0
 
+    track_fullstack_web:
+      name: "Full-Stack & Modern Web"
+      keywords:
+        full stack: 4.0
+        fullstack: 4.0
+        software engineer: 3.0
+        software engineering: 3.0
+        software developer: 3.0
+        typescript: 4.0
+        javascript: 3.0
+        react: 4.0
+        next.js: 4.0
+        nextjs: 4.0
+        vue: 3.0
+        node.js: 3.0
+        nodejs: 3.0
+        node: 2.0
+        frontend: 3.0
+        front end: 3.0
+        graphql: 3.0
+        rest api: 2.0
+        web application: 2.0
+
+    track_platform_devops:
+      name: "Platform & DevOps Engineering"
+      keywords:
+        devops: 4.0
+        platform engineer: 4.0
+        site reliability: 4.0
+        sre: 3.0
+        cloud engineer: 3.0
+        infrastructure: 3.0
+        docker: 3.0
+        kubernetes: 4.0
+        k8s: 4.0
+        terraform: 3.0
+        ci/cd: 3.0
+        github actions: 3.0
+        aws: 3.0
+        azure: 3.0
+        linux: 2.0
+
 # ------------------------------------------------------------------------------
 # Source Ingestion & Health Check Thresholds
+
 # ------------------------------------------------------------------------------
 health_monitoring:
   drop_threshold_percent: 50.0  # Alert if volume drops >50% vs previous run

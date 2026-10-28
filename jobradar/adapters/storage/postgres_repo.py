@@ -254,22 +254,29 @@ class PostgresRepository(BaseStorageRepository):
                 )
             conn.commit()
 
-    def get_unnotified_matches(self, limit: int = 15) -> list[ScoredJob]:
+    def get_unnotified_matches(
+        self, limit: int = 15, min_score: Optional[float] = None
+    ) -> list[ScoredJob]:
         with self.pool.connection() as conn:
             with conn.cursor() as cursor:
-                cursor.execute(
-                    """
+                query = """
                     SELECT j.*, m.breakdown_json, m.alert_sent_at
                     FROM scored_matches m
                     JOIN jobs j ON j.fingerprint = m.job_fingerprint
                     WHERE m.is_match = TRUE AND m.alert_sent_at IS NULL AND j.is_closed = FALSE
-                    ORDER BY m.final_score DESC, j.first_seen DESC
-                    LIMIT %s;
-                    """,
-                    (limit,),
-                )
+                """
+                params: list[Any] = []
+                if min_score is not None:
+                    query += " AND m.final_score >= %s"
+                    params.append(min_score)
+
+                query += " ORDER BY m.final_score DESC, j.first_seen DESC LIMIT %s;"
+                params.append(limit)
+
+                cursor.execute(query, tuple(params))
                 rows = cursor.fetchall()
                 return [self._row_to_scored_job(r) for r in rows]
+
 
     def mark_alert_sent(self, fingerprint: str, alert_time: Optional[datetime] = None) -> None:
         sent_time = alert_time or datetime.now(timezone.utc)

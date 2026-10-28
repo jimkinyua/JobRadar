@@ -42,9 +42,10 @@ class BaseStorageRepository(ABC):
         pass
 
     @abstractmethod
-    def get_unnotified_matches(self, limit: int = 15) -> list[ScoredJob]:
-        """Retrieve highest scoring matches that have not been notified via Telegram yet."""
+    def get_unnotified_matches(self, limit: int = 15, min_score: Optional[float] = None) -> list[ScoredJob]:
+        """Retrieve highest scoring matches (optionally >= min_score) not alerted yet."""
         pass
+
 
     @abstractmethod
     def mark_alert_sent(self, fingerprint: str, alert_time: Optional[datetime] = None) -> None:

@@ -31,6 +31,7 @@ class PipelineConfig(BaseModel):
     version: str = "0.1.0"
     min_score: float = 8.0
     near_miss_delta: float = 2.0
+    alert_min_score: float = 9.0
     max_alerts_per_run: int = 15
     initial_run_baseline_alerts: int = 10
     deadline_reminder_days: int = 3

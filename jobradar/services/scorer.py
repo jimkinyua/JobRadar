@@ -31,6 +31,14 @@ def build_keyword_pattern(keyword: str) -> re.Pattern:
         return re.compile(r"\bm-?pesa\b", re.IGNORECASE)
     elif kw in ("go", "golang"):
         return re.compile(r"\b(?:golang|go(?:\s+(?:developer|engineer|backend|fullstack|stack|lang|programmer))?)\b", re.IGNORECASE)
+    elif kw in ("next.js", "nextjs"):
+        return re.compile(r"\b(?:next\.js|nextjs)\b", re.IGNORECASE)
+    elif kw in ("node.js", "nodejs"):
+        return re.compile(r"\b(?:node\.js|nodejs)\b", re.IGNORECASE)
+    elif kw in ("ci/cd", "cicd"):
+        return re.compile(r"\b(?:ci[/-]cd|cicd)\b", re.IGNORECASE)
+    elif kw in ("k8s", "kubernetes"):
+        return re.compile(r"\b(?:k8s|kubernetes)\b", re.IGNORECASE)
     elif kw == "qa":
         return re.compile(r"\bqa\b", re.IGNORECASE)
     elif kw == "tax":
@@ -39,6 +47,7 @@ def build_keyword_pattern(keyword: str) -> re.Pattern:
         # Standard phrase/word boundary
         escaped = re.escape(kw)
         return re.compile(rf"\b{escaped}\b", re.IGNORECASE)
+
 
 
 class JobScorer:

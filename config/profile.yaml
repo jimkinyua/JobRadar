@@ -3,30 +3,38 @@
 # ==============================================================================
 candidate:
   name: "James Kinyua"
-  title: "Senior Backend & Data Engineer"
+  title: "Senior Software & Data Systems Engineer"
   years_experience: 5
   target_roles:
-    - "AI Application Engineer"
-    - "Senior Data Engineer"
+    - "Senior Software Engineer (Full-Stack / Backend)"
     - "Senior Backend Engineer (.NET / Python / Go)"
-    - "Cloud Solutions Architect"
+    - "Senior Data & Streaming Systems Engineer"
+    - "AI & Applied ML Application Engineer"
+    - "Cloud & Platform Solutions Architect"
   core_skills:
     - "Python"
     - "FastAPI"
+    - "Django"
+    - "TypeScript / JavaScript"
+    - "React / Next.js"
+    - ".NET / C#"
     - "PostgreSQL"
+
     - "Apache Kafka"
     - "Data Pipelines / ETL / Medallion Architecture"
-    - ".NET / C#"
-    - "Docker"
-    - "REST APIs & Microservices"
+    - "Docker & Containerization"
+    - "REST APIs, GraphQL & Microservices"
   familiar_tools:
+    - "Kubernetes"
+    - "CI/CD & GitHub Actions"
     - "PyTorch"
     - "LangChain"
-    - "RAG Architectures"
-    - "Vector Databases"
-    - "Azure"
+    - "RAG Architectures & Vector DBs"
+    - "Azure & AWS Cloud"
     - "Linux"
   experience_summary: >
-    Experienced software engineer specializing in designing and deploying end-to-end data
-    ingestion pipelines, high-throughput microservices, and database solutions.
-    Skilled in Python, PostgreSQL Medallion architecture, and cloud integrations.
+    Versatile Senior Software & Data Systems Engineer with 5+ years of production experience building
+    high-throughput microservices, robust full-stack web applications, distributed event-driven systems,
+    and scalable database platforms. Proficient in Python, C#/.NET, modern TypeScript/React, PostgreSQL,
+    and cloud infrastructure.
+

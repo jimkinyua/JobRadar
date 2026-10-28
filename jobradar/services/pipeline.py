@@ -116,14 +116,10 @@ class JobRadarPipeline:
                 # 5. Gold Layer: Multi-Track Scoring
                 breakdown = self.scorer.score(saved_job)
 
-                ai_insight = None
-                if breakdown.is_match and is_new and self.ai_service.is_available():
-                    ai_insight = self.ai_service.evaluate_job_fit(saved_job)
-
                 scored = ScoredJob(
                     job=saved_job,
                     score_breakdown=breakdown,
-                    ai_insight=ai_insight,
+                    ai_insight=None,
                 )
                 self.repo.save_scored_match(scored)
 
@@ -153,7 +149,7 @@ class JobRadarPipeline:
         if unhealthy_sources and not dry_run and self.telegram.is_configured():
             self.telegram.send_health_alert(unhealthy_sources)
 
-        # 9. Alert Dispatching
+        # 9. Alert Dispatching (Elite Matches >= alert_min_score with AI thesis)
         alerts_sent = 0
         if not dry_run and self.telegram.is_configured():
             alert_limit = (
@@ -161,17 +157,28 @@ class JobRadarPipeline:
                 if is_baseline_run
                 else self.config.pipeline.max_alerts_per_run
             )
+            alert_min = getattr(self.config.pipeline, "alert_min_score", 9.0)
 
-            unnotified = self.repo.get_unnotified_matches(limit=alert_limit)
+            unnotified = self.repo.get_unnotified_matches(limit=alert_limit, min_score=alert_min)
             for match in unnotified:
+                # Ensure elite match alert has AI strategic thesis attached
+                if not match.ai_insight and self.ai_service.is_available():
+                    try:
+                        match.ai_insight = self.ai_service.evaluate_job_fit(match.job)
+                        if match.ai_insight:
+                            self.repo.save_scored_match(match)
+                    except Exception as e:
+                        logger.warning("Failed to generate AI insight for alert %s: %s", match.job.fingerprint, e)
+
                 success = self.telegram.send_job_alert(match)
                 if success:
                     self.repo.mark_alert_sent(match.job.fingerprint)
                     alerts_sent += 1
 
             if len(unnotified) == alert_limit:
-                summary_note = f"ℹ️ <i>Showing top {alert_limit} matches for this run.</i>"
+                summary_note = f"ℹ️ <i>Showing top {alert_limit} elite matches for this run.</i>"
                 self.telegram.send_message(summary_note)
+
 
             # 10. Check 3-day deadline reminders
             closing_soon = self.repo.get_closing_soon_matches(
