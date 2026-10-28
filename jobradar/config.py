@@ -78,6 +78,12 @@ class AppConfig(BaseModel):
     reliefweb_appname: Optional[str] = Field(
         default_factory=lambda: os.getenv("RELIEFWEB_APPNAME")
     )
+    gemini_api_key: Optional[str] = Field(
+        default_factory=lambda: os.getenv("GEMINI_API_KEY")
+    )
+    gemini_model: str = Field(
+        default_factory=lambda: os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
+    )
 
 
 def load_config(config_path: str | Path = "config/config.yaml") -> AppConfig:

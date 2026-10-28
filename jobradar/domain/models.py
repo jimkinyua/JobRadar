@@ -112,10 +112,29 @@ class ScoreBreakdown(BaseModel):
     details: str = Field(default="", description="Human-readable audit log summary")
 
 
+class AICopilotInsight(BaseModel):
+    """AI evaluation of a high-scoring job match against candidate profile."""
+    semantic_fit_score: int = Field(default=80, ge=0, le=100, description="Match percentage 0-100")
+    fit_rationale: str = Field(description="Explanation of why the job matches the candidate profile")
+    key_strengths: list[str] = Field(default_factory=list, description="Candidate skills aligned with role")
+    skill_gaps: list[str] = Field(default_factory=list, description="Missing tools or requirements")
+    tailored_pitch: str = Field(description="Custom resume bullet or pitch crafted for this job")
+
+
+class ExtractedJobItem(BaseModel):
+    """Structured job entity extracted by LLM from raw HTML / unstructured page text."""
+    title: str = Field(..., min_length=2)
+    url: str = Field(...)
+    location: Optional[str] = Field(default="Nairobi, Kenya")
+    summary: Optional[str] = Field(default="")
+    deadline: Optional[str] = Field(default=None)
+
+
 class ScoredJob(BaseModel):
-    """A job paired with its analytical evaluation and notification status."""
+    """A job paired with its analytical evaluation, optional AI insights, and notification status."""
     job: Job
     score_breakdown: ScoreBreakdown
+    ai_insight: Optional[AICopilotInsight] = None
     alert_sent_at: Optional[datetime] = None
 
 
