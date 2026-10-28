@@ -276,6 +276,10 @@ function renderJobCard(job) {
           <button class="btn-inspect" onclick="openJobModal(${job.id}, 'breakdown')">
             📊 Match Breakdown
           </button>
+          ${job.breakdown?.ai_insight ? `
+          <button class="btn-inspect" style="background: rgba(139, 92, 246, 0.1); border-color: rgba(139, 92, 246, 0.35); color: #7C3AED; font-weight: 700;" onclick="openJobModal(${job.id}, 'ai')">
+            ✨ AI Fit (${job.breakdown.ai_insight.semantic_fit_score}%)
+          </button>` : ''}
         </div>
         <a href="${escapeHtml(job.url)}" target="_blank" rel="noopener noreferrer" class="apply-link">
           Apply on ${escapeHtml(formatSourceName(job.source))} →
@@ -332,11 +336,15 @@ function openJobModal(jobId, initialTab = 'requirements') {
   content.innerHTML = `
     <div class="modal-nav-tabs">
       <button class="modal-nav-btn ${initialTab === 'requirements' ? 'active' : ''}" id="modal-tab-req" onclick="switchModalTab('requirements')">
-        📋 Full Requirements & Description
+        📋 Full Requirements
       </button>
       <button class="modal-nav-btn ${initialTab === 'breakdown' ? 'active' : ''}" id="modal-tab-score" onclick="switchModalTab('breakdown')">
-        📊 Scoring & Persona Breakdown
+        📊 Scoring Breakdown
       </button>
+      ${job.breakdown?.ai_insight ? `
+      <button class="modal-nav-btn ${initialTab === 'ai' ? 'active' : ''}" id="modal-tab-ai" onclick="switchModalTab('ai')" style="background: rgba(139, 92, 246, 0.1); border-color: rgba(139, 92, 246, 0.4); color: #7C3AED; font-weight: 700;">
+        ✨ AI Career Copilot (${job.breakdown.ai_insight.semantic_fit_score}%)
+      </button>` : ''}
     </div>
 
     <div id="modal-pane-requirements" style="display: ${initialTab === 'requirements' ? 'block' : 'none'};">
@@ -393,6 +401,60 @@ function openJobModal(jobId, initialTab = 'requirements') {
         </a>
       </div>
     </div>
+
+    <div id="modal-pane-ai" style="display: ${initialTab === 'ai' ? 'block' : 'none'};">
+      ${job.breakdown?.ai_insight ? `
+      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.25rem; padding: 1.2rem; background: linear-gradient(135deg, rgba(139, 92, 246, 0.08), rgba(59, 130, 246, 0.05)); border-radius: var(--radius-lg); border: 1px solid rgba(139, 92, 246, 0.25);">
+        <div>
+          <div style="font-family: var(--font-mono); font-size: 0.725rem; font-weight: 700; color: #7C3AED; text-transform: uppercase; letter-spacing: 0.05em;">AI Semantic Persona Match</div>
+          <div style="font-size: 1.15rem; font-weight: 800; color: var(--text-headline);">Candidate Profile Alignment</div>
+        </div>
+        <div style="text-align: right;">
+          <div style="font-family: var(--font-mono); font-size: 0.725rem; font-weight: 700; color: #7C3AED; text-transform: uppercase; letter-spacing: 0.05em;">Fit Score</div>
+          <div style="font-size: 1.85rem; font-weight: 800; font-family: var(--font-mono); color: #7C3AED;">${job.breakdown.ai_insight.semantic_fit_score}%</div>
+        </div>
+      </div>
+
+      <div style="margin-bottom: 1.25rem;">
+        <h4 style="font-family: var(--font-mono); font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem; color: var(--text-muted);">💡 Why You Match:</h4>
+        <div style="background: var(--bg-card); border: 1px solid var(--border-light); border-radius: var(--radius-md); padding: 1rem; font-size: 0.9rem; line-height: 1.6; color: var(--text-headline);">
+          ${escapeHtml(job.breakdown.ai_insight.fit_rationale)}
+        </div>
+      </div>
+
+      ${(job.breakdown.ai_insight.skill_gaps || []).length > 0 ? `
+      <div style="margin-bottom: 1.25rem;">
+        <h4 style="font-family: var(--font-mono); font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem; color: #DC2626;">⚠️ Skill Gaps to Prepare:</h4>
+        <div style="display: flex; flex-wrap: wrap; gap: 0.5rem;">
+          ${job.breakdown.ai_insight.skill_gaps.map(g => `<span class="chip neg" style="font-size: 0.8rem; padding: 0.35rem 0.65rem;">${escapeHtml(g)}</span>`).join('')}
+        </div>
+      </div>` : ''}
+
+      ${job.breakdown.ai_insight.tailored_pitch ? `
+      <div style="margin-bottom: 1.5rem;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+          <h4 style="font-family: var(--font-mono); font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted);">🚀 Tailored CV / Cover Letter Pitch:</h4>
+          <button id="copy-pitch-btn" class="btn btn-ghost" style="font-size: 0.75rem; padding: 0.25rem 0.6rem;" onclick="copyTailoredPitch(${job.id})">📋 Copy Pitch</button>
+        </div>
+        <div id="pitch-text-${job.id}" style="background: #F8FAFC; border: 1.5px dashed rgba(139, 92, 246, 0.4); border-radius: var(--radius-md); padding: 1.1rem; font-style: italic; font-size: 0.875rem; line-height: 1.6; color: var(--text-headline);">
+          "${escapeHtml(job.breakdown.ai_insight.tailored_pitch)}"
+        </div>
+      </div>` : ''}
+      ` : `
+      <div class="empty-state" style="padding: 2rem;">
+        <div class="empty-icon">🤖</div>
+        <h4 class="empty-title">AI Insight Not Generated Yet</h4>
+        <p class="empty-desc">This job has not been evaluated by Gemini AI yet.</p>
+      </div>
+      `}
+
+      <div style="margin-top: 1.5rem; display: flex; justify-content: flex-end; gap: 0.75rem; padding-top: 1rem; border-top: 1px solid var(--border-light);">
+        <button class="btn btn-ghost" onclick="switchModalTab('requirements')">← Read Full Requirements</button>
+        <a href="${escapeHtml(job.url)}" target="_blank" rel="noopener noreferrer" class="btn btn-primary">
+          View Official Vacancy →
+        </a>
+      </div>
+    </div>
   `;
 
   modal.classList.add('active');
@@ -401,20 +463,42 @@ function openJobModal(jobId, initialTab = 'requirements') {
 function switchModalTab(tabName) {
   const reqBtn = document.getElementById('modal-tab-req');
   const scoreBtn = document.getElementById('modal-tab-score');
+  const aiBtn = document.getElementById('modal-tab-ai');
   const reqPane = document.getElementById('modal-pane-requirements');
   const scorePane = document.getElementById('modal-pane-breakdown');
+  const aiPane = document.getElementById('modal-pane-ai');
 
   if (tabName === 'requirements') {
     if (reqBtn) reqBtn.classList.add('active');
     if (scoreBtn) scoreBtn.classList.remove('active');
+    if (aiBtn) aiBtn.classList.remove('active');
     if (reqPane) reqPane.style.display = 'block';
     if (scorePane) scorePane.style.display = 'none';
-  } else {
+    if (aiPane) aiPane.style.display = 'none';
+  } else if (tabName === 'breakdown') {
     if (reqBtn) reqBtn.classList.remove('active');
     if (scoreBtn) scoreBtn.classList.add('active');
+    if (aiBtn) aiBtn.classList.remove('active');
     if (reqPane) reqPane.style.display = 'none';
     if (scorePane) scorePane.style.display = 'block';
+    if (aiPane) aiPane.style.display = 'none';
+  } else if (tabName === 'ai') {
+    if (reqBtn) reqBtn.classList.remove('active');
+    if (scoreBtn) scoreBtn.classList.remove('active');
+    if (aiBtn) aiBtn.classList.add('active');
+    if (reqPane) reqPane.style.display = 'none';
+    if (scorePane) scorePane.style.display = 'none';
+    if (aiPane) aiPane.style.display = 'block';
   }
+}
+
+function copyTailoredPitch(jobId) {
+  const pitchElem = document.getElementById(`pitch-text-${jobId}`);
+  if (!pitchElem) return;
+  const text = pitchElem.innerText.replace(/^"|"$/g, '').trim();
+  navigator.clipboard.writeText(text).then(() => {
+    showToast('🚀 Tailored pitch copied to clipboard!');
+  });
 }
 
 async function handleTriggerRun() {

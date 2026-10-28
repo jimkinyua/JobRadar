@@ -91,11 +91,13 @@ class HtmlSourceAdapter(BaseSourceAdapter):
             if not title:
                 continue
 
-            # Link extraction
+            # Link extraction: pick the first element with a valid href
             job_url = target_url
-            link_elem = item.select_one(link_selector)
-            if link_elem and link_elem.get("href"):
-                job_url = urljoin(target_url, link_elem["href"])
+            for link_candidate in item.select(link_selector):
+                href_val = link_candidate.get("href")
+                if href_val and href_val.strip() and not href_val.startswith("#"):
+                    job_url = urljoin(target_url, href_val.strip())
+                    break
 
             # Company extraction
             company = self.source_name

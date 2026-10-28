@@ -27,7 +27,7 @@ class GeminiClient:
     def __init__(
         self,
         api_key: Optional[str] = None,
-        model: str = "gemini-2.0-flash",
+        model: str = "gemini-flash-lite-latest",
         timeout: float = 30.0,
         session: Optional[requests.Session] = None,
     ) -> None:
@@ -74,6 +74,12 @@ class GeminiClient:
 
         try:
             resp = self.session.post(url, headers=headers, json=payload, timeout=self.timeout)
+            if resp.status_code == 429:
+                import time
+                logger.warning("Gemini API rate limited (429). Retrying after 4s backoff...")
+                time.sleep(4.0)
+                resp = self.session.post(url, headers=headers, json=payload, timeout=self.timeout)
+
             resp.raise_for_status()
             data = resp.json()
 
@@ -122,6 +128,8 @@ class GeminiClient:
             "temperature": temperature,
             "responseMimeType": "application/json",
         }
+        if schema_cls and issubclass(schema_cls, BaseModel):
+            gen_config["responseSchema"] = schema_cls.model_json_schema()
 
         payload: dict[str, Any] = {
             "contents": [{"parts": [{"text": prompt}]}],
@@ -133,6 +141,12 @@ class GeminiClient:
 
         try:
             resp = self.session.post(url, headers=headers, json=payload, timeout=self.timeout)
+            if resp.status_code == 429:
+                import time
+                logger.warning("Gemini API JSON rate limited (429). Retrying after 4s backoff...")
+                time.sleep(4.0)
+                resp = self.session.post(url, headers=headers, json=payload, timeout=self.timeout)
+
             resp.raise_for_status()
             data = resp.json()
 

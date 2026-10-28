@@ -33,9 +33,23 @@ def format_job_alert(scored: ScoredJob) -> str:
         f"🏢 <b>Company:</b> {esc_company}",
         f"📍 <b>Location:</b> {esc_location}",
         f"⭐ <b>Score:</b> {score_val} ({esc_track}){deadline_str}",
-        f'🔗 <a href="{esc_url}">View Job Listing</a>',
     ]
+
+    # Append AI Copilot Briefing if available
+    if scored.ai_insight:
+        insight = scored.ai_insight
+        esc_fit = html.escape(insight.fit_rationale)
+        lines.append(f"\n💡 <b>Why You Match ({insight.semantic_fit_score}% Fit):</b>\n{esc_fit}")
+        if insight.skill_gaps:
+            esc_gaps = ", ".join(html.escape(g) for g in insight.skill_gaps)
+            lines.append(f"⚠️ <b>Skill Gaps:</b> {esc_gaps}")
+        if insight.tailored_pitch:
+            esc_pitch = html.escape(insight.tailored_pitch)
+            lines.append(f"🚀 <b>Tailored CV Pitch:</b>\n<i>\"{esc_pitch}\"</i>")
+
+    lines.append(f'🔗 <a href="{esc_url}">View Job Listing</a>')
     return "\n".join(lines)
+
 
 
 def format_health_alert(unhealthy_sources: list[dict[str, Any]]) -> str:

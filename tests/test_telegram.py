@@ -145,3 +145,37 @@ def test_command_handler_ignore_command():
     assert len(actions) == 1
     assert "Ignored" in actions[0]
     mock_repo.update_employer_status.assert_called_once_with(77, "ignored")
+
+
+def test_telegram_alert_with_ai_insight():
+    from jobradar.domain.models import AICopilotInsight
+    job = Job(
+        title="AI Application Engineer",
+        company="Co-operative Bank of Kenya",
+        url="https://example.com/job/10",
+        location="Nairobi",
+        source="coop",
+    )
+    breakdown = ScoreBreakdown(
+        best_track_id="track_ai_ml",
+        best_track_name="AI & Machine Learning Engineering",
+        track_score=15.0,
+        final_score=18.0,
+        is_match=True,
+        is_near_miss=False,
+    )
+    insight = AICopilotInsight(
+        semantic_fit_score=94,
+        fit_rationale="High synergy with Python and data pipelines.",
+        key_strengths=["Python", "FastAPI"],
+        skill_gaps=["Qdrant vector database"],
+        tailored_pitch="Engineered automated data pipelines in PostgreSQL.",
+    )
+    scored = ScoredJob(job=job, score_breakdown=breakdown, ai_insight=insight)
+    alert_html = format_job_alert(scored)
+
+    assert "94% Fit" in alert_html
+    assert "High synergy with Python" in alert_html
+    assert "Qdrant vector database" in alert_html
+    assert "Engineered automated data pipelines in PostgreSQL." in alert_html
+

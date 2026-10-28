@@ -223,6 +223,8 @@ class PostgresRepository(BaseStorageRepository):
 
     def save_scored_match(self, scored_job: ScoredJob) -> None:
         breakdown_dict = scored_job.score_breakdown.model_dump()
+        if scored_job.ai_insight:
+            breakdown_dict["ai_insight"] = scored_job.ai_insight.model_dump()
         with self.pool.connection() as conn:
             with conn.cursor() as cursor:
                 cursor.execute(
@@ -468,9 +470,17 @@ class PostgresRepository(BaseStorageRepository):
         if isinstance(breakdown_data, str):
             breakdown_data = json.loads(breakdown_data)
         breakdown = ScoreBreakdown.model_validate(breakdown_data)
+        ai_insight = None
+        if isinstance(breakdown_data, dict) and breakdown_data.get("ai_insight"):
+            try:
+                from jobradar.domain.models import AICopilotInsight
+                ai_insight = AICopilotInsight.model_validate(breakdown_data["ai_insight"])
+            except Exception:
+                ai_insight = None
         return ScoredJob(
             job=job,
             score_breakdown=breakdown,
+            ai_insight=ai_insight,
             alert_sent_at=r["alert_sent_at"],
         )
 

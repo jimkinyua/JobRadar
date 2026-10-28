@@ -37,12 +37,15 @@ class JobRadarPipeline:
         config: Optional[AppConfig] = None,
         repo: Optional[BaseStorageRepository] = None,
         telegram: Optional[TelegramClient] = None,
+        ai_service: Optional[Any] = None,
     ) -> None:
         from jobradar.config import load_config
         from jobradar.adapters.storage.factory import get_repository
+        from jobradar.services.ai_service import AIService
         self.config = config or load_config()
         self.repo = repo or get_repository()
         self.scorer = JobScorer(self.config)
+        self.ai_service = ai_service or AIService(config=self.config)
         self.telegram = telegram or TelegramClient(
             bot_token=self.config.telegram_bot_token,
             chat_id=self.config.telegram_chat_id,
@@ -112,7 +115,16 @@ class JobRadarPipeline:
 
                 # 5. Gold Layer: Multi-Track Scoring
                 breakdown = self.scorer.score(saved_job)
-                scored = ScoredJob(job=saved_job, score_breakdown=breakdown)
+
+                ai_insight = None
+                if breakdown.is_match and is_new and self.ai_service.is_available():
+                    ai_insight = self.ai_service.evaluate_job_fit(saved_job)
+
+                scored = ScoredJob(
+                    job=saved_job,
+                    score_breakdown=breakdown,
+                    ai_insight=ai_insight,
+                )
                 self.repo.save_scored_match(scored)
 
                 if breakdown.is_match:
