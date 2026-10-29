@@ -132,6 +132,24 @@ function initEventListeners() {
     });
   }
 
+  // Add Employer modal
+  const addEmpBtn = document.getElementById('add-employer-btn');
+  const addEmpModal = document.getElementById('add-employer-modal');
+  const addEmpClose = document.getElementById('add-employer-modal-close');
+  if (addEmpBtn && addEmpModal) {
+    addEmpBtn.addEventListener('click', () => {
+      addEmpModal.classList.add('active');
+      const nameInput = document.getElementById('new-source-name');
+      if (nameInput) nameInput.focus();
+    });
+  }
+  if (addEmpClose && addEmpModal) {
+    addEmpClose.addEventListener('click', () => addEmpModal.classList.remove('active'));
+    addEmpModal.addEventListener('click', (e) => {
+      if (e.target === addEmpModal) addEmpModal.classList.remove('active');
+    });
+  }
+
   // Modal close
   const modalClose = document.getElementById('modal-close');
   const modalOverlay = document.getElementById('modal-overlay');
@@ -144,8 +162,9 @@ function initEventListeners() {
 
   // Keyboard shortcut: Escape to close modal
   document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && modalOverlay && modalOverlay.classList.contains('active')) {
-      modalOverlay.classList.remove('active');
+    if (e.key === 'Escape') {
+      if (modalOverlay && modalOverlay.classList.contains('active')) modalOverlay.classList.remove('active');
+      if (addEmpModal && addEmpModal.classList.contains('active')) addEmpModal.classList.remove('active');
     }
   });
 }
@@ -181,7 +200,9 @@ async function loadSources() {
     data.sources.forEach(s => {
       const opt = document.createElement('option');
       opt.value = s.id;
-      opt.textContent = `${s.name} ${s.enabled ? '' : '(Paused)'}`;
+      const customTag = s.custom ? ' ★' : '';
+      const statusTag = s.enabled ? '' : ' (Paused)';
+      opt.textContent = `${s.name}${customTag}${statusTag}`;
       select.appendChild(opt);
     });
   } catch (err) {
@@ -874,3 +895,149 @@ function showToast(message, isError = false) {
     toast.classList.remove('show');
   }, 3500);
 }
+
+let currentProbedSource = null;
+
+window.probeSource = async function() {
+  const nameInput = document.getElementById('new-source-name');
+  const urlInput = document.getElementById('new-source-url');
+  const probeBtn = document.getElementById('btn-probe-source');
+  const resultContainer = document.getElementById('probe-result-container');
+  if (!nameInput || !urlInput || !probeBtn || !resultContainer) return;
+
+  const name = nameInput.value.trim();
+  const url = urlInput.value.trim();
+  if (!url) return;
+
+  probeBtn.disabled = true;
+  probeBtn.innerHTML = `<span class="pulse-dot" style="display:inline-block; margin-right: 6px;"></span> Probing page & testing extraction...`;
+  resultContainer.style.display = 'block';
+  resultContainer.innerHTML = `
+    <div style="text-align: center; padding: 1.5rem; color: var(--text-muted);">
+      <div class="pulse-dot" style="margin: 0 auto 0.75rem auto;"></div>
+      <div style="font-size: 0.8rem; font-family: var(--font-mono);">Connecting to career portal and evaluating extraction architecture...</div>
+    </div>
+  `;
+
+  try {
+    const res = await fetch('/api/sources/probe', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, url })
+    });
+    const data = await res.json();
+
+    if (!data.success) {
+      resultContainer.innerHTML = `
+        <div style="padding: 1rem; background: #FEF2F2; border: 1px solid #FECACA; border-radius: var(--radius-sm); color: #991B1B; font-size: 0.85rem;">
+          <div style="font-weight: 700; margin-bottom: 0.25rem;">Extraction Warning</div>
+          <div>${escapeHtml(data.error || 'Could not extract vacancies from this URL.')}</div>
+        </div>
+      `;
+      return;
+    }
+
+    currentProbedSource = data;
+
+    let sampleCardsHtml = '';
+    if (data.sample_jobs && data.sample_jobs.length > 0) {
+      sampleCardsHtml = data.sample_jobs.map(j => `
+        <div style="padding: 0.65rem 0.85rem; background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); margin-bottom: 0.5rem; display: flex; justify-content: space-between; align-items: center; gap: 0.5rem;">
+          <div>
+            <div style="font-weight: 700; font-size: 0.85rem; color: var(--text-primary);">${escapeHtml(j.title)}</div>
+            <div style="font-size: 0.75rem; color: var(--text-muted);">${escapeHtml(j.location || 'Nairobi, Kenya')}</div>
+          </div>
+          <a href="${escapeHtml(j.url)}" target="_blank" rel="noopener noreferrer" style="font-size: 0.75rem; color: var(--accent); text-decoration: none; font-weight: 600; white-space: nowrap;">
+            Link ↗
+          </a>
+        </div>
+      `).join('');
+    } else {
+      sampleCardsHtml = `
+        <div style="padding: 0.75rem; background: var(--bg-subtle); border-radius: var(--radius-sm); font-size: 0.8rem; color: var(--text-muted); text-align: center;">
+          0 immediate active vacancies found. Source will be monitored during regular 3-hour crawl cycles.
+        </div>
+      `;
+    }
+
+    resultContainer.innerHTML = `
+      <div style="background: #F0FDF4; border: 1px solid #BBF7D0; border-radius: var(--radius-sm); padding: 0.85rem 1rem; margin-bottom: 1rem; display: flex; justify-content: space-between; align-items: center;">
+        <div>
+          <div style="font-size: 0.7rem; font-weight: 700; color: #166534; font-family: var(--font-mono); text-transform: uppercase; letter-spacing: 0.05em;">Detected Ingestion Architecture</div>
+          <div style="font-size: 0.95rem; font-weight: 800; color: #14532D;">${escapeHtml(data.type_label || data.type)}</div>
+        </div>
+        <div style="text-align: right;">
+          <span style="display: inline-block; padding: 0.2rem 0.6rem; background: #DCFCE7; border: 1px solid #86EFAC; border-radius: 9999px; font-size: 0.75rem; font-weight: 700; color: #15803D;">
+            ✓ ${data.count} Sample Vacancies Verified
+          </span>
+        </div>
+      </div>
+
+      <div style="margin-bottom: 1rem;">
+        <div style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem; font-family: var(--font-mono);">
+          Live Sample Extracted Listings:
+        </div>
+        ${sampleCardsHtml}
+      </div>
+
+      <div style="display: flex; justify-content: flex-end; gap: 0.75rem; padding-top: 0.75rem; border-top: 1px solid var(--border-subtle);">
+        <button type="button" class="btn btn-ghost" onclick="document.getElementById('add-employer-modal').classList.remove('active');">Cancel</button>
+        <button type="button" class="btn btn-primary" onclick="window.activateProbedSource()" style="background: #16A34A; border-color: #15803D;">
+          ✓ Activate Portal & Add to Pipeline
+        </button>
+      </div>
+    `;
+
+  } catch (err) {
+    console.error('Probe failed:', err);
+    resultContainer.innerHTML = `
+      <div style="padding: 1rem; background: #FEF2F2; border: 1px solid #FECACA; border-radius: var(--radius-sm); color: #991B1B; font-size: 0.85rem;">
+        Network error probing career portal. Check network connection.
+      </div>
+    `;
+  } finally {
+    probeBtn.disabled = false;
+    probeBtn.innerHTML = `🔍 Test & Preview Extraction`;
+  }
+};
+
+window.activateProbedSource = async function() {
+  if (!currentProbedSource) return;
+
+  try {
+    const res = await fetch('/api/sources', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: currentProbedSource.name,
+        url: currentProbedSource.url,
+        type: currentProbedSource.type,
+        company_identifier: currentProbedSource.company_identifier,
+        selectors: currentProbedSource.selectors,
+        enabled: true,
+      })
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      showToast(data.detail || 'Failed to save source', true);
+      return;
+    }
+
+    showToast(`✓ Portal "${currentProbedSource.name}" activated and added to crawler!`);
+    const modal = document.getElementById('add-employer-modal');
+    if (modal) modal.classList.remove('active');
+
+    // Reset inputs
+    document.getElementById('new-source-name').value = '';
+    document.getElementById('new-source-url').value = '';
+    document.getElementById('probe-result-container').style.display = 'none';
+    currentProbedSource = null;
+
+    // Refresh source dropdown and stats
+    loadSources();
+    loadStats();
+  } catch (err) {
+    console.error('Failed to activate source:', err);
+    showToast('Failed to save portal', true);
+  }
+};

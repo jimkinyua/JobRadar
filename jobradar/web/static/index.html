@@ -38,6 +38,11 @@
           <span>CRAWLER ACTIVE · EVERY 3H</span>
         </div>
 
+        <button id="add-employer-btn" class="btn btn-ghost" title="Add new website or employer career portal without code">
+          <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+          + Add Employer
+        </button>
+
         <button id="sync-notion-btn" class="btn btn-ghost" title="Synchronize with Notion Job Applications Tracker">
           <svg viewBox="0 0 24 24"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/></svg>
           Sync Notion
@@ -188,6 +193,41 @@
       </div>
       <div id="modal-job-content">
         <!-- Injected via JavaScript -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Add Employer / Portal Modal -->
+  <div class="modal-overlay" id="add-employer-modal">
+    <div class="modal-card" style="max-width: 660px;">
+      <div class="modal-header">
+        <div>
+          <h3 class="modal-title" style="margin-bottom: 2px;">Add Employer Career Portal</h3>
+          <div style="font-size: 0.775rem; color: var(--text-muted);">Auto-detects Greenhouse, Lever, SmartRecruiters, RSS, or uses Gemini 2.0 Flash AI extraction.</div>
+        </div>
+        <button class="modal-close" id="add-employer-modal-close" aria-label="Close dialog">&times;</button>
+      </div>
+      <div style="padding: 1.5rem;">
+        <form id="add-source-form" onsubmit="event.preventDefault(); window.probeSource();">
+          <div style="margin-bottom: 1rem;">
+            <label style="display: block; font-size: 0.75rem; font-weight: 700; color: var(--text-secondary); margin-bottom: 0.35rem; font-family: var(--font-mono); text-transform: uppercase; letter-spacing: 0.05em;">Employer / Company Name</label>
+            <input type="text" id="new-source-name" placeholder="e.g. Twiga Foods, KCB Bank, Stripe" required style="width: 100%; box-sizing: border-box; padding: 0.65rem 0.85rem; border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); font-size: 0.875rem; background: var(--bg-surface); color: var(--text-primary);">
+          </div>
+          <div style="margin-bottom: 1.25rem;">
+            <label style="display: block; font-size: 0.75rem; font-weight: 700; color: var(--text-secondary); margin-bottom: 0.35rem; font-family: var(--font-mono); text-transform: uppercase; letter-spacing: 0.05em;">Careers Page or Feed URL</label>
+            <input type="url" id="new-source-url" placeholder="https://company.com/careers or https://boards.greenhouse.io/company" required style="width: 100%; box-sizing: border-box; padding: 0.65rem 0.85rem; border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); font-size: 0.875rem; background: var(--bg-surface); color: var(--text-primary);">
+          </div>
+          
+          <div style="display: flex; gap: 0.75rem; align-items: center; justify-content: flex-end;">
+            <button type="submit" id="btn-probe-source" class="btn btn-primary" style="padding: 0.6rem 1.25rem; font-size: 0.825rem;">
+              🔍 Test & Preview Extraction
+            </button>
+          </div>
+        </form>
+
+        <!-- Live Probe Result Preview Area -->
+        <div id="probe-result-container" style="display: none; margin-top: 1.25rem; border-top: 1px solid var(--border-subtle); padding-top: 1.25rem;">
+        </div>
       </div>
     </div>
   </div>

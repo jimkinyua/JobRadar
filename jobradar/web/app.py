@@ -77,16 +77,103 @@ async def get_stats():
         repo.close()
 
 
+class SourceProbeRequest(BaseModel):
+    url: str
+    name: Optional[str] = None
+
+
+class AddSourceRequest(BaseModel):
+    name: str
+    url: str
+    type: str = "html"
+    company_identifier: Optional[str] = None
+    selectors: Optional[dict[str, str]] = None
+    enabled: bool = True
+
+
+class ToggleSourceRequest(BaseModel):
+    enabled: bool
+
+
 @app.get("/api/sources")
 async def get_sources():
-    """List available sources from configuration."""
+    """List available sources from configuration and database."""
     from jobradar.config import load_config
     config = load_config()
     sources_data = [
-        {"id": s.id, "name": s.name, "type": s.type, "enabled": s.enabled}
+        {"id": s.id, "name": s.name, "type": s.type, "enabled": s.enabled, "custom": False}
         for s in config.sources
     ]
+
+    try:
+        repo = get_repository(config.database_url)
+        custom_sources = repo.get_custom_sources()
+        for cs in custom_sources:
+            sources_data.append({
+                "id": cs["id"],
+                "name": cs["name"],
+                "type": cs["type"],
+                "url": cs["url"],
+                "enabled": cs["enabled"],
+                "custom": True,
+            })
+        repo.close()
+    except Exception as e:
+        logger.warning("Could not fetch custom sources: %s", e)
+
     return {"sources": sources_data}
+
+
+@app.post("/api/sources/probe")
+async def probe_source_endpoint(req: SourceProbeRequest):
+    """Probe a career URL, detect its source adapter, and extract live sample jobs."""
+    import asyncio
+    from jobradar.services.source_detector import probe_source
+    res = await asyncio.to_thread(probe_source, req.url, req.name)
+    return res
+
+
+@app.post("/api/sources")
+async def add_source(req: AddSourceRequest):
+    """Add a new custom source/employer into the crawler pipeline."""
+    from jobradar.config import load_config
+    config = load_config()
+    repo = get_repository(config.database_url)
+    try:
+        saved = repo.save_custom_source(req.model_dump())
+        return {"success": True, "source": saved}
+    finally:
+        repo.close()
+
+
+@app.patch("/api/sources/{source_id}/toggle")
+async def toggle_source(source_id: str, req: ToggleSourceRequest):
+    """Toggle a custom source active/paused."""
+    from jobradar.config import load_config
+    config = load_config()
+    repo = get_repository(config.database_url)
+    try:
+        ok = repo.toggle_custom_source(source_id, req.enabled)
+        if not ok:
+            raise HTTPException(status_code=404, detail="Custom source not found.")
+        return {"success": True, "id": source_id, "enabled": req.enabled}
+    finally:
+        repo.close()
+
+
+@app.delete("/api/sources/{source_id}")
+async def delete_source(source_id: str):
+    """Delete a custom source from the database."""
+    from jobradar.config import load_config
+    config = load_config()
+    repo = get_repository(config.database_url)
+    try:
+        ok = repo.delete_custom_source(source_id)
+        if not ok:
+            raise HTTPException(status_code=404, detail="Custom source not found.")
+        return {"success": True, "id": source_id}
+    finally:
+        repo.close()
 
 
 @app.post("/api/trigger-run")

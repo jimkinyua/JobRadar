@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 from datetime import datetime, timezone, timedelta
 from typing import Any, Optional
 from psycopg_pool import ConnectionPool
@@ -138,6 +139,19 @@ class PostgresRepository(BaseStorageRepository):
                         last_seen TIMESTAMPTZ NOT NULL DEFAULT NOW()
                     );
                     CREATE INDEX IF NOT EXISTS idx_pg_employers_status ON discovered_employers(status);
+
+                    -- 6. Dynamic Custom Sources added via Web UI
+                    CREATE TABLE IF NOT EXISTS custom_sources (
+                        id VARCHAR(64) PRIMARY KEY,
+                        name VARCHAR(255) NOT NULL,
+                        type VARCHAR(32) NOT NULL,
+                        url TEXT NOT NULL,
+                        company_identifier VARCHAR(128),
+                        selectors_json JSONB,
+                        enabled BOOLEAN DEFAULT TRUE,
+                        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+                    );
                     """
                 )
             conn.commit()
@@ -721,4 +735,87 @@ class PostgresRepository(BaseStorageRepository):
                     "employers_spotted": int(row["employers_spotted"] or 0),
                     "top10_avg_score": float(row["top10_avg_score"] or 0.0),
                 }
+
+    def save_custom_source(self, source_data: dict[str, Any]) -> dict[str, Any]:
+        source_id = source_data.get("id") or re.sub(r"[^a-z0-9_]", "_", source_data["name"].lower().strip())
+        name = source_data["name"].strip()
+        stype = source_data.get("type", "html").strip()
+        url = source_data["url"].strip()
+        company_id = source_data.get("company_identifier")
+        selectors = source_data.get("selectors")
+        selectors_json = json.dumps(selectors) if selectors else None
+        enabled = source_data.get("enabled", True)
+
+        with self.pool.connection() as conn:
+            with conn.cursor() as cursor:
+                cursor.execute(
+                    """
+                    INSERT INTO custom_sources (
+                        id, name, type, url, company_identifier, selectors_json, enabled, updated_at
+                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, NOW())
+                    ON CONFLICT (id) DO UPDATE SET
+                        name = EXCLUDED.name,
+                        type = EXCLUDED.type,
+                        url = EXCLUDED.url,
+                        company_identifier = EXCLUDED.company_identifier,
+                        selectors_json = EXCLUDED.selectors_json,
+                        enabled = EXCLUDED.enabled,
+                        updated_at = NOW()
+                    RETURNING *;
+                    """,
+                    (source_id, name, stype, url, company_id, selectors_json, enabled),
+                )
+                row = cursor.fetchone()
+            conn.commit()
+
+        return {
+            "id": row["id"],
+            "name": row["name"],
+            "type": row["type"],
+            "url": row["url"],
+            "company_identifier": row["company_identifier"],
+            "selectors": json.loads(row["selectors_json"]) if row["selectors_json"] else None,
+            "enabled": bool(row["enabled"]),
+            "created_at": row["created_at"].isoformat() if row["created_at"] else None,
+            "updated_at": row["updated_at"].isoformat() if row["updated_at"] else None,
+        }
+
+    def get_custom_sources(self) -> list[dict[str, Any]]:
+        with self.pool.connection() as conn:
+            with conn.cursor() as cursor:
+                cursor.execute("SELECT * FROM custom_sources ORDER BY created_at DESC;")
+                rows = cursor.fetchall()
+                results = []
+                for r in rows:
+                    results.append({
+                        "id": r["id"],
+                        "name": r["name"],
+                        "type": r["type"],
+                        "url": r["url"],
+                        "company_identifier": r["company_identifier"],
+                        "selectors": json.loads(r["selectors_json"]) if r["selectors_json"] else None,
+                        "enabled": bool(r["enabled"]),
+                        "created_at": r["created_at"].isoformat() if r["created_at"] else None,
+                        "updated_at": r["updated_at"].isoformat() if r["updated_at"] else None,
+                    })
+                return results
+
+    def toggle_custom_source(self, source_id: str, enabled: bool) -> bool:
+        with self.pool.connection() as conn:
+            with conn.cursor() as cursor:
+                cursor.execute(
+                    "UPDATE custom_sources SET enabled = %s, updated_at = NOW() WHERE id = %s;",
+                    (enabled, source_id),
+                )
+                updated = cursor.rowcount > 0
+            conn.commit()
+            return updated
+
+    def delete_custom_source(self, source_id: str) -> bool:
+        with self.pool.connection() as conn:
+            with conn.cursor() as cursor:
+                cursor.execute("DELETE FROM custom_sources WHERE id = %s;", (source_id,))
+                deleted = cursor.rowcount > 0
+            conn.commit()
+            return deleted
 

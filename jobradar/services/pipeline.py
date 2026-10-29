@@ -78,7 +78,7 @@ class JobRadarPipeline:
         is_baseline_run = (total_jobs_before == 0)
 
 
-        # 1. Assemble source list (Configured sources + Approved direct employers)
+        # 1. Assemble source list (Configured YAML sources + Approved employers + Dynamic DB sources)
         active_sources = [s for s in self.config.sources if s.enabled]
         approved_employers = load_employers()
 
@@ -93,6 +93,25 @@ class JobRadarPipeline:
                         enabled=True,
                     )
                 )
+
+        # Dynamic Custom Sources added via Web UI
+        try:
+            custom_sources = self.repo.get_custom_sources()
+            for cs in custom_sources:
+                if cs.get("enabled", True):
+                    active_sources.append(
+                        SourceConfig(
+                            id=cs["id"],
+                            name=cs["name"],
+                            type=cs["type"],
+                            url=cs["url"],
+                            company_identifier=cs.get("company_identifier"),
+                            selectors=cs.get("selectors"),
+                            enabled=True,
+                        )
+                    )
+        except Exception as e:
+            logger.warning("Could not load custom sources from database: %s", e)
 
         logger.info("Active sources to process: %d", len(active_sources))
 

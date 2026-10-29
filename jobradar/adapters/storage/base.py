@@ -142,3 +142,23 @@ class BaseStorageRepository(ABC):
         """Fetch aggregate summary metrics for the web dashboard."""
         pass
 
+    @abstractmethod
+    def save_custom_source(self, source_data: dict[str, Any]) -> dict[str, Any]:
+        """Insert or update a custom crawler source."""
+        pass
+
+    @abstractmethod
+    def get_custom_sources(self) -> list[dict[str, Any]]:
+        """List all user-added custom crawler sources."""
+        pass
+
+    @abstractmethod
+    def toggle_custom_source(self, source_id: str, enabled: bool) -> bool:
+        """Enable or pause a custom crawler source."""
+        pass
+
+    @abstractmethod
+    def delete_custom_source(self, source_id: str) -> bool:
+        """Delete a custom crawler source."""
+        pass
+

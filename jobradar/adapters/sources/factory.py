@@ -13,6 +13,7 @@ from jobradar.adapters.sources.reliefweb import ReliefWebSourceAdapter
 from jobradar.adapters.sources.rss import RssSourceAdapter
 from jobradar.adapters.sources.html import HtmlSourceAdapter
 from jobradar.adapters.sources.workday import WorkdaySourceAdapter
+from jobradar.adapters.sources.ai_html import AiHtmlSourceAdapter
 
 
 def get_source_adapter(source_config: SourceConfig, crawler_config: CrawlerConfig) -> BaseSourceAdapter:
@@ -35,6 +36,8 @@ def get_source_adapter(source_config: SourceConfig, crawler_config: CrawlerConfi
         return RssSourceAdapter(source_config, crawler_config)
     elif source_type == "html":
         return HtmlSourceAdapter(source_config, crawler_config)
+    elif source_type in ("ai_html", "ai"):
+        return AiHtmlSourceAdapter(source_config, crawler_config)
     elif source_type == "workday":
         return WorkdaySourceAdapter(source_config, crawler_config)
     else:
