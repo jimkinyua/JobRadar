@@ -114,10 +114,13 @@ $$\text{Final Score} = \max(\text{Track Scores}) + \text{Location Multipliers} +
 ## 🚀 CLI Commands
 
 ```powershell
-# Run full ingestion, scoring, and notification pipeline
+# Run full ingestion, scoring, and notification pipeline (auto-syncs with Notion)
 .\.venv\Scripts\python -m jobradar run [--dry-run]
 
-# Poll Telegram for pending /add and /ignore commands
+# Trigger standalone two-way Notion synchronization
+.\.venv\Scripts\python -m jobradar sync-notion
+
+# Poll Telegram for pending /add, /ignore, and /apply commands
 .\.venv\Scripts\python -m jobradar commands
 
 # Verify Telegram bot credentials and test message delivery
@@ -135,6 +138,45 @@ $$\text{Final Score} = \max(\text{Track Scores}) + \text{Location Multipliers} +
 # Export matched jobs to CSV
 .\.venv\Scripts\python -m jobradar export-csv --output matches.csv
 ```
+
+---
+
+## 📑 Notion "Job Applications" Two-Way Synchronization
+
+JobRadar integrates bidirectionally with your personal Notion workspace to act as a unified career intelligence system:
+
+```
+┌─────────────────────────────────┐                 ┌─────────────────────────────────┐
+│        JobRadar System          │                 │       Notion Workspace          │
+│ • Web Dashboard                 │ ◄─────────────► │ • "Job Applications" Database   │
+│ • Telegram Bot [✅ Mark Applied] │   Two-Way Sync  │ • Status: Applied, Interview... │
+│ • Automated 3-Hour Crawlers     │                 │ • Source of Truth for Pipeline  │
+└─────────────────────────────────┘                 └─────────────────────────────────┘
+```
+
+### Key Capabilities
+1. **Reminder & Alert Gatekeeping**: Once a job is marked `Applied`, `Screening`, `Interview`, `Final round`, `Offer`, `Rejected`, `No response`, or `Withdrawn` (in either JobRadar or Notion), all future Telegram alerts, Monday near-miss mentions, and 3-day deadline reminders for that job are immediately silenced.
+2. **Dashboard Application Status Segmentation**: The executive web dashboard categorizes listings into distinct views:
+   - **`New Matches`**: Fresh unapplied vacancies.
+   - **`Applied & In Flight`**: Active applications in review or interview rounds.
+   - **`Closed / Archived`**: Rejected, withdrawn, or concluded positions.
+   - **`All Postings`**: Comprehensive unfiltered repository.
+3. **One-Click Application Marking**:
+   - **Telegram Alerts**: Directly tap `[✅ Mark Applied]` under any job notification card, or reply `/apply <job_id>`.
+   - **Web UI**: Tap `[+ Mark Applied]` on any job card or select the stage in the modal dropdown. The vacancy is immediately created/updated in Notion with Role, Company, Date Applied, Closing Date, Portal Link, and notes.
+4. **Fuzzy Matching for Manual Notion Rows**: If you manually log an application in Notion without pasting a link, JobRadar's fuzzy token matching engine resolves the row against crawled jobs using normalized company names and role tokens, automatically backfilling the verified job link into your Notion tracker.
+5. **Zero-Crash Graceful Degradation**: If `NOTION_API_KEY` or `NOTION_DATABASE_ID` is omitted, JobRadar operates smoothly with standard local status tracking.
+
+### Setup Instructions
+1. Create an Internal Integration at [notion.so/my-integrations](https://www.notion.so/my-integrations) and obtain your `NOTION_API_KEY` (format: `ntn_...` or `secret_...`).
+2. Share your "Job Applications" database with the integration (**...** -> **Connections** -> Select your integration).
+3. Copy the 32-character database ID from the database URL:
+   `https://www.notion.so/{workspace_name}/{database_id}?v={view_id}`
+4. Add to your `.env`:
+   ```bash
+   NOTION_API_KEY=ntn_your_notion_secret_key
+   NOTION_DATABASE_ID=your_32_character_database_id
+   ```
 
 ---
 

@@ -85,6 +85,17 @@ class AppConfig(BaseModel):
     gemini_model: str = Field(
         default_factory=lambda: os.getenv("GEMINI_MODEL", "gemini-flash-lite-latest")
     )
+    notion_api_key: Optional[str] = Field(
+        default_factory=lambda: os.getenv("NOTION_API_KEY")
+    )
+    notion_database_id: Optional[str] = Field(
+        default_factory=lambda: os.getenv("NOTION_DATABASE_ID")
+    )
+
+    @property
+    def is_notion_configured(self) -> bool:
+        return bool(self.notion_api_key and self.notion_database_id)
+
 
 
 def load_config(config_path: str | Path = "config/config.yaml") -> AppConfig:

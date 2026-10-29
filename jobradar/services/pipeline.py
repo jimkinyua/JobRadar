@@ -42,6 +42,7 @@ class JobRadarPipeline:
         from jobradar.config import load_config
         from jobradar.adapters.storage.factory import get_repository
         from jobradar.services.ai_service import AIService
+        from jobradar.adapters.notion import NotionClient, sync_notion_with_repository
         self.config = config or load_config()
         self.repo = repo or get_repository()
         self.scorer = JobScorer(self.config)
@@ -49,6 +50,10 @@ class JobRadarPipeline:
         self.telegram = telegram or TelegramClient(
             bot_token=self.config.telegram_bot_token,
             chat_id=self.config.telegram_chat_id,
+        )
+        self.notion = NotionClient(
+            api_key=self.config.notion_api_key,
+            database_id=self.config.notion_database_id,
         )
 
     def run(
@@ -60,9 +65,18 @@ class JobRadarPipeline:
         run_start = datetime.now(timezone.utc)
         logger.info("Starting JobRadar pipeline run (dry_run=%s)", dry_run)
 
+        # 0. Pre-Crawl Notion Two-Way Status Sync
+        if self.notion.is_configured():
+            try:
+                sync_summary = sync_notion_with_repository(self.notion, self.repo)
+                logger.info("Pre-crawl Notion sync finished: %s", sync_summary)
+            except Exception as e:
+                logger.warning("Pre-crawl Notion sync error: %s", e)
+
         # Baseline detection: Is this the first run with an empty database?
         total_jobs_before = self.repo.count_total_jobs()
         is_baseline_run = (total_jobs_before == 0)
+
 
         # 1. Assemble source list (Configured sources + Approved direct employers)
         active_sources = [s for s in self.config.sources if s.enabled]

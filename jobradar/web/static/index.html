@@ -38,6 +38,11 @@
           <span>CRAWLER ACTIVE · EVERY 3H</span>
         </div>
 
+        <button id="sync-notion-btn" class="btn btn-ghost" title="Synchronize with Notion Job Applications Tracker">
+          <svg viewBox="0 0 24 24"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/></svg>
+          Sync Notion
+        </button>
+
         <button id="refresh-btn" class="btn btn-ghost" title="Refresh local feed">
           <svg viewBox="0 0 24 24"><path d="M23 4v6h-6"></path><path d="M1 20v-6h6"></path><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
           Refresh
@@ -57,8 +62,12 @@
     <!-- KPI Statistics Grid -->
     <section class="stats-grid" id="stats-section">
       <div class="stat-card" id="card-total-jobs">
-        <div class="stat-label">Total Ingested</div>
+        <div class="stat-label">New Unapplied</div>
         <div class="stat-value" id="stat-total-jobs">--</div>
+      </div>
+      <div class="stat-card" id="card-applied-jobs">
+        <div class="stat-label">Applications Active</div>
+        <div class="stat-value iris" id="stat-applied-jobs">--</div>
       </div>
       <div class="stat-card" id="card-high-matches">
         <div class="stat-label">High Tech Matches (9.0+)</div>
@@ -69,7 +78,7 @@
         <div class="stat-value amber" id="stat-near-misses">--</div>
       </div>
       <div class="stat-card" id="card-active-sources">
-        <div class="stat-label">Direct Corporate Portals</div>
+        <div class="stat-label">Corporate Portals</div>
         <div class="stat-value" id="stat-active-sources">--</div>
       </div>
       <div class="stat-card" id="card-avg-score">
@@ -80,8 +89,25 @@
 
     <!-- Filters & Persona Track Selection -->
     <section class="filter-panel" id="filter-section">
+      <!-- Status Segmented Controls: New Matches, Applied, Closed, All -->
+      <div class="status-segment-bar" id="status-segment-container">
+        <button class="status-pill active" data-status="new" id="status-btn-new">
+          <span class="status-dot-indicator dot-new"></span> New Matches
+        </button>
+        <button class="status-pill" data-status="applied" id="status-btn-applied">
+          <span class="status-dot-indicator dot-applied"></span> Applied & In Flight
+        </button>
+        <button class="status-pill" data-status="closed" id="status-btn-closed">
+          <span class="status-dot-indicator dot-closed"></span> Closed / Archived
+        </button>
+        <button class="status-pill" data-status="all" id="status-btn-all">
+          <span class="status-dot-indicator dot-all"></span> All Postings
+        </button>
+      </div>
+
       <!-- Career Track Tabs -->
       <div class="track-tabs" id="track-tabs-container">
+
         <button class="tab-btn active" data-track="all" id="tab-all">
           <span class="tab-dot"></span> All Tracks
         </button>

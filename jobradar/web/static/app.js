@@ -4,6 +4,7 @@
  */
 
 let state = {
+  status: 'new',
   track: 'all',
   minScore: null,
   source: 'all',
@@ -25,6 +26,40 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 function initEventListeners() {
+  // Application status segment pills
+  document.querySelectorAll('.status-pill').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.status-pill').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      state.status = btn.dataset.status;
+      loadJobs();
+    });
+  });
+
+  // Notion Sync button
+  const syncBtn = document.getElementById('sync-notion-btn');
+  if (syncBtn) {
+    syncBtn.addEventListener('click', async () => {
+      syncBtn.classList.add('sync-spinning');
+      try {
+        const res = await fetch('/api/notion/sync', { method: 'POST' });
+        const data = await res.json();
+        if (data.success) {
+          alert(`🔄 Notion Sync Complete!\n• Rows Scanned: ${data.summary.notion_rows_scanned}\n• Jobs Updated: ${data.summary.synced_jobs}\n• Links Backfilled: ${data.summary.backfilled_links}`);
+          loadStats();
+          loadJobs();
+        } else {
+          alert(`⚠️ ${data.message || 'Notion sync could not be completed.'}`);
+        }
+      } catch (err) {
+        console.error('Failed to sync with Notion:', err);
+        alert('Could not connect to the Notion sync service.');
+      } finally {
+        syncBtn.classList.remove('sync-spinning');
+      }
+    });
+  }
+
   // Track tabs
   document.querySelectorAll('.tab-btn').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -42,6 +77,7 @@ function initEventListeners() {
       loadJobs();
     });
   });
+
 
   // Score threshold filter
   const scoreFilter = document.getElementById('score-filter');
@@ -121,6 +157,8 @@ async function loadStats() {
     const data = await res.json();
     
     document.getElementById('stat-total-jobs').textContent = data.total_jobs || '0';
+    const appliedEl = document.getElementById('stat-applied-jobs');
+    if (appliedEl) appliedEl.textContent = data.applied_count || '0';
     document.getElementById('stat-high-matches').textContent = data.high_matches || '0';
     document.getElementById('stat-near-misses').textContent = data.near_misses || '0';
     document.getElementById('stat-active-sources').textContent = data.active_sources || '0';
@@ -164,6 +202,7 @@ async function loadJobs() {
   `;
 
   const params = new URLSearchParams();
+  if (state.status) params.set('status', state.status);
   if (state.track && state.track !== 'all') params.set('track', state.track);
   if (state.minScore !== null) params.set('min_score', state.minScore);
   if (state.source && state.source !== 'all') params.set('source', state.source);
@@ -184,7 +223,7 @@ async function loadJobs() {
         <div style="text-align: center; padding: 4rem 1.5rem; background: var(--bg-surface); border: 1px dashed var(--border-card); border-radius: var(--radius-md); margin: 1rem 0;">
           <h3 style="font-size: 1.1rem; font-weight: 700; color: var(--text-primary); margin-bottom: 0.35rem;">No matching vacancies found</h3>
           <p style="font-size: 0.85rem; color: var(--text-muted); max-width: 440px; margin: 0 auto 1.25rem auto; line-height: 1.6;">
-            Try switching to "All Tracks", loosening your keyword query, or resetting the score filter.
+            Try switching to "All Postings", loosening your keyword query, or resetting the score filter.
           </p>
           <button class="btn btn-ghost" onclick="resetFilters()">Reset All Filters</button>
         </div>
@@ -249,6 +288,31 @@ function renderJobCard(job) {
   const postedText = job.first_seen ? formatRelativeTime(job.first_seen) : 'Recently';
   const fullDesc = job.full_description || job.description || 'No detailed requirements provided.';
 
+  const appStatus = (job.application_status || 'unapplied').toLowerCase();
+  const isApplied = ['applied', 'screening', 'interview', 'final round', 'final_round', 'offer'].includes(appStatus);
+  const isClosed = ['rejected', 'withdrawn', 'no_response', 'closed'].includes(appStatus) || job.is_closed;
+
+  let applyButtonHtml = '';
+  if (isApplied) {
+    applyButtonHtml = `
+      <button class="btn-apply is-applied" title="Synced with Notion. Click to unapply." onclick="event.stopPropagation(); updateJobStatus(${job.id}, 'unapplied')">
+        ✓ ${escapeHtml(job.application_status)}
+      </button>
+    `;
+  } else if (isClosed) {
+    applyButtonHtml = `
+      <button class="btn-apply" title="Archived. Click to reopen." onclick="event.stopPropagation(); updateJobStatus(${job.id}, 'unapplied')">
+        Archived
+      </button>
+    `;
+  } else {
+    applyButtonHtml = `
+      <button class="btn-apply" title="Mark applied and sync to Notion" onclick="event.stopPropagation(); updateJobStatus(${job.id}, 'Applied')">
+        + Mark Applied
+      </button>
+    `;
+  }
+
   return `
     <div class="${cardClass}" id="job-card-${job.id}">
       <div class="job-top-bar">
@@ -256,6 +320,7 @@ function renderJobCard(job) {
           <span class="company-name">${escapeHtml(job.company)}</span>
           <span class="source-badge">${escapeHtml(formatSourceName(job.source))}</span>
           <span class="posted-badge">${postedText}</span>
+          ${job.notion_page_id ? `<span class="source-badge" style="background: #EEF2FF; color: #4F46E5; border-color: #C7D2FE;" title="Synced with Notion Job Applications">Notion</span>` : ''}
         </div>
         ${pillHtml}
       </div>
@@ -276,12 +341,14 @@ function renderJobCard(job) {
 
       <div class="card-actions">
         <div class="action-buttons-left">
+          ${applyButtonHtml}
           <button class="btn-toggle-req" id="btn-toggle-${job.id}" onclick="toggleRequirements(${job.id})">
             Details & Requirements <span class="req-arrow">▾</span>
           </button>
           <button class="btn-inspect" onclick="openJobModal(${job.id}, 'breakdown')">
             Match Telemetry
           </button>
+
           ${job.breakdown?.ai_insight ? `
           <button class="btn-inspect btn-ai" onclick="openJobModal(${job.id}, 'ai')">
             ✦ AI Copilot (${job.breakdown.ai_insight.semantic_fit_score}%)
@@ -343,8 +410,36 @@ function openJobModal(jobId, initialTab = 'requirements') {
   title.textContent = `${job.title} · ${job.company}`;
 
   const aiInsight = job.breakdown?.ai_insight;
+  const currentStatus = job.application_status || 'unapplied';
 
   content.innerHTML = `
+    <!-- Notion Application Status Action Bar -->
+    <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.75rem; padding: 0.75rem 1rem; margin-bottom: 1.25rem; background: var(--bg-surface); border: 1px solid var(--border-card); border-radius: var(--radius-sm);">
+      <div style="display: flex; align-items: center; gap: 0.6rem;">
+        <span style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; font-family: var(--font-mono);">Application Status:</span>
+        <select id="modal-status-select" onchange="window.updateJobStatus(${job.id}, this.value)" style="padding: 0.35rem 0.65rem; font-size: 0.8rem; font-weight: 600; border-radius: var(--radius-sm); border: 1px solid var(--border-subtle); background: var(--bg-card); color: var(--text-primary); cursor: pointer;">
+          <option value="unapplied" ${currentStatus.toLowerCase() === 'unapplied' ? 'selected' : ''}>Fresh / Unapplied</option>
+          <option value="To apply" ${currentStatus === 'To apply' ? 'selected' : ''}>To apply</option>
+          <option value="Applied" ${currentStatus === 'Applied' ? 'selected' : ''}>Applied</option>
+          <option value="Screening" ${currentStatus === 'Screening' ? 'selected' : ''}>Screening</option>
+          <option value="Interview" ${currentStatus === 'Interview' ? 'selected' : ''}>Interview</option>
+          <option value="Final round" ${currentStatus === 'Final round' ? 'selected' : ''}>Final round</option>
+          <option value="Offer" ${currentStatus === 'Offer' ? 'selected' : ''}>Offer</option>
+          <option value="Rejected" ${currentStatus === 'Rejected' ? 'selected' : ''}>Rejected</option>
+          <option value="Withdrawn" ${currentStatus === 'Withdrawn' ? 'selected' : ''}>Withdrawn</option>
+        </select>
+      </div>
+      <div style="font-size: 0.75rem; color: var(--text-muted); display: flex; align-items: center; gap: 0.4rem;">
+        ${job.notion_page_id ? `
+          <span style="display: inline-flex; align-items: center; gap: 0.35rem; color: #4F46E5; font-weight: 600;">
+            <span style="display:inline-block; width: 6px; height: 6px; border-radius: 50%; background: #4F46E5;"></span> Synced to Notion Tracker
+          </span>
+        ` : `
+          <span style="color: var(--text-dim);">Changes automatically push to Notion</span>
+        `}
+      </div>
+    </div>
+
     <div class="modal-nav-tabs">
       <button class="modal-nav-btn ${initialTab === 'requirements' ? 'active' : ''}" id="modal-tab-req" onclick="switchModalTab('requirements')">
         Role Requirements
@@ -632,6 +727,42 @@ function resetFilters() {
 
   loadJobs();
 }
+
+window.updateJobStatus = async function(jobId, newStatus) {
+  try {
+    const res = await fetch(`/api/jobs/${jobId}/status`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: newStatus })
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      showToast(data.detail || 'Failed to update status', true);
+      return;
+    }
+
+    if (currentJobs[jobId]) {
+      currentJobs[jobId].application_status = data.job.application_status;
+      currentJobs[jobId].notion_page_id = data.job.notion_page_id;
+      currentJobs[jobId].applied_at = data.job.applied_at;
+    }
+
+    const notionNote = data.notion_synced ? ' & synced to Notion' : '';
+    showToast(`Status updated to "${data.job.application_status}"${notionNote}`);
+    
+    // Refresh stats and feed
+    loadStats();
+    loadJobs();
+
+    // If modal is open for this job, refresh modal
+    if (activeModalJobId === jobId) {
+      openJobModal(jobId, 'requirements');
+    }
+  } catch (err) {
+    console.error('Failed to update job status:', err);
+    showToast('Network error updating job status', true);
+  }
+};
 
 function formatDescriptionHtml(text) {
   if (!text) return '<p style="color: var(--text-dim);">No detailed description provided.</p>';

@@ -73,8 +73,18 @@ class PostgresRepository(BaseStorageRepository):
                     );
                     CREATE INDEX IF NOT EXISTS idx_pg_jobs_fingerprint ON jobs(fingerprint);
                     CREATE INDEX IF NOT EXISTS idx_pg_jobs_source ON jobs(source);
+
+                    -- Notion & Application tracking migrations
+                    ALTER TABLE jobs ADD COLUMN IF NOT EXISTS application_status VARCHAR(50) DEFAULT 'unapplied';
+                    ALTER TABLE jobs ADD COLUMN IF NOT EXISTS applied_at TIMESTAMPTZ;
+                    ALTER TABLE jobs ADD COLUMN IF NOT EXISTS notion_page_id VARCHAR(100);
+                    ALTER TABLE jobs ADD COLUMN IF NOT EXISTS notion_synced_at TIMESTAMPTZ;
+                    ALTER TABLE jobs ADD COLUMN IF NOT EXISTS application_notes TEXT;
+                    CREATE INDEX IF NOT EXISTS idx_pg_jobs_app_status ON jobs(application_status);
+                    CREATE INDEX IF NOT EXISTS idx_pg_jobs_notion_page ON jobs(notion_page_id);
                     """
                 )
+
 
                 # 3. Gold Layer: scored_matches
                 cursor.execute(
@@ -180,14 +190,18 @@ class PostgresRepository(BaseStorageRepository):
                             description = CASE WHEN length(%s) > length(jobs.description) THEN %s ELSE jobs.description END,
                             is_closed = FALSE
                         WHERE id = %s
-                        RETURNING first_seen, last_seen;
+                        RETURNING id, first_seen, last_seen, application_status, applied_at, notion_page_id;
                         """,
                         (now, job.deadline, job.description, job.description, existing["id"]),
                     )
                     res = cursor.fetchone()
+                    job.id = res["id"]
                     job.fingerprint = existing["fingerprint"]
                     job.first_seen = res["first_seen"]
                     job.last_seen = res["last_seen"]
+                    job.application_status = res.get("application_status") or "unapplied"
+                    job.applied_at = res.get("applied_at")
+                    job.notion_page_id = res.get("notion_page_id")
                     conn.commit()
                     return job, False
                 else:
@@ -196,9 +210,10 @@ class PostgresRepository(BaseStorageRepository):
                         """
                         INSERT INTO jobs (
                             fingerprint, url, title, company, location, description,
-                            posted_at, deadline_at, source, raw_id, first_seen, last_seen, is_closed
-                        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, FALSE)
-                        RETURNING first_seen, last_seen;
+                            posted_at, deadline_at, source, raw_id, first_seen, last_seen, is_closed,
+                            application_status
+                        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, FALSE, %s)
+                        RETURNING id, first_seen, last_seen;
                         """,
                         (
                             job.fingerprint,
@@ -213,13 +228,16 @@ class PostgresRepository(BaseStorageRepository):
                             job.raw_id,
                             job.first_seen,
                             now,
+                            job.application_status or "unapplied",
                         ),
                     )
                     res = cursor.fetchone()
+                    job.id = res["id"]
                     job.first_seen = res["first_seen"]
                     job.last_seen = res["last_seen"]
                     conn.commit()
                     return job, True
+
 
     def save_scored_match(self, scored_job: ScoredJob) -> None:
         breakdown_dict = scored_job.score_breakdown.model_dump()
@@ -263,7 +281,10 @@ class PostgresRepository(BaseStorageRepository):
                     SELECT j.*, m.breakdown_json, m.alert_sent_at
                     FROM scored_matches m
                     JOIN jobs j ON j.fingerprint = m.job_fingerprint
-                    WHERE m.is_match = TRUE AND m.alert_sent_at IS NULL AND j.is_closed = FALSE
+                    WHERE m.is_match = TRUE
+                      AND m.alert_sent_at IS NULL
+                      AND j.is_closed = FALSE
+                      AND (j.application_status IS NULL OR LOWER(j.application_status) IN ('unapplied', 'to apply'))
                 """
                 params: list[Any] = []
                 if min_score is not None:
@@ -276,7 +297,6 @@ class PostgresRepository(BaseStorageRepository):
                 cursor.execute(query, tuple(params))
                 rows = cursor.fetchall()
                 return [self._row_to_scored_job(r) for r in rows]
-
 
     def mark_alert_sent(self, fingerprint: str, alert_time: Optional[datetime] = None) -> None:
         sent_time = alert_time or datetime.now(timezone.utc)
@@ -297,7 +317,10 @@ class PostgresRepository(BaseStorageRepository):
                     SELECT j.*, m.breakdown_json, m.alert_sent_at
                     FROM scored_matches m
                     JOIN jobs j ON j.fingerprint = m.job_fingerprint
-                    WHERE m.is_near_miss = TRUE AND j.first_seen >= %s AND j.is_closed = FALSE
+                    WHERE m.is_near_miss = TRUE
+                      AND j.first_seen >= %s
+                      AND j.is_closed = FALSE
+                      AND (j.application_status IS NULL OR LOWER(j.application_status) IN ('unapplied', 'to apply'))
                     ORDER BY m.final_score DESC;
                     """,
                     (cutoff,),
@@ -319,11 +342,13 @@ class PostgresRepository(BaseStorageRepository):
                       AND j.deadline_at IS NOT NULL
                       AND j.deadline_at <= %s
                       AND j.deadline_at >= %s
-                      AND j.is_closed = FALSE;
+                      AND j.is_closed = FALSE
+                      AND (j.application_status IS NULL OR LOWER(j.application_status) IN ('unapplied', 'to apply'));
                     """,
                     (target, now),
                 )
                 return [self._row_to_scored_job(r) for r in cursor.fetchall()]
+
 
     def mark_deadline_reminder_sent(self, fingerprint: str) -> None:
         with self.pool.connection() as conn:
@@ -454,8 +479,62 @@ class PostgresRepository(BaseStorageRepository):
                 cursor.execute("SELECT COUNT(*) as count FROM jobs;")
                 return int(cursor.fetchone()["count"])
 
+    def get_job_by_id(self, job_id: int) -> Optional[Job]:
+        with self.pool.connection() as conn:
+            with conn.cursor() as cursor:
+                cursor.execute("SELECT * FROM jobs WHERE id = %s LIMIT 1;", (job_id,))
+                row = cursor.fetchone()
+                return self._row_to_job(row) if row else None
+
+    def get_job_by_url(self, url: str) -> Optional[Job]:
+        with self.pool.connection() as conn:
+            with conn.cursor() as cursor:
+                cursor.execute("SELECT * FROM jobs WHERE url = %s LIMIT 1;", (url,))
+                row = cursor.fetchone()
+                return self._row_to_job(row) if row else None
+
+    def update_job_application_status(
+        self,
+        job_id_or_fingerprint: int | str,
+        status: str,
+        applied_at: Optional[datetime] = None,
+        notion_page_id: Optional[str] = None,
+        notes: Optional[str] = None,
+    ) -> Optional[Job]:
+        now = datetime.now(timezone.utc)
+        app_time = applied_at
+        if status.lower() in ("applied", "screening", "interview", "final_round", "offer") and not app_time:
+            app_time = now
+
+        with self.pool.connection() as conn:
+            with conn.cursor() as cursor:
+                if isinstance(job_id_or_fingerprint, int) or (isinstance(job_id_or_fingerprint, str) and str(job_id_or_fingerprint).isdigit()):
+                    where_clause = "id = %s"
+                    val: Any = int(job_id_or_fingerprint)
+                else:
+                    where_clause = "fingerprint = %s"
+                    val = str(job_id_or_fingerprint)
+
+                cursor.execute(
+                    f"""
+                    UPDATE jobs
+                    SET application_status = %s,
+                        applied_at = COALESCE(%s, applied_at),
+                        notion_page_id = COALESCE(%s, notion_page_id),
+                        notion_synced_at = %s,
+                        application_notes = COALESCE(%s, application_notes)
+                    WHERE {where_clause}
+                    RETURNING *;
+                    """,
+                    (status, app_time, notion_page_id, now, notes, val),
+                )
+                row = cursor.fetchone()
+            conn.commit()
+            return self._row_to_job(row) if row else None
+
     def _row_to_job(self, r: dict[str, Any]) -> Job:
         return Job(
+            id=r.get("id"),
             title=r["title"],
             company=r["company"],
             url=r["url"],
@@ -469,6 +548,11 @@ class PostgresRepository(BaseStorageRepository):
             first_seen=r["first_seen"],
             last_seen=r["last_seen"],
             is_closed=r["is_closed"],
+            application_status=r.get("application_status") or "unapplied",
+            applied_at=r.get("applied_at"),
+            notion_page_id=r.get("notion_page_id"),
+            notion_synced_at=r.get("notion_synced_at"),
+            application_notes=r.get("application_notes"),
         )
 
     def _row_to_scored_job(self, r: dict[str, Any]) -> ScoredJob:
@@ -497,10 +581,22 @@ class PostgresRepository(BaseStorageRepository):
         min_score: Optional[float] = None,
         source: Optional[str] = None,
         search: Optional[str] = None,
+        application_status: Optional[str] = None,
         limit: int = 200,
     ) -> list[dict]:
-        clauses = ["j.is_closed = FALSE"]
+        clauses = []
         params: list[Any] = []
+
+        if application_status == "applied":
+            clauses.append("LOWER(j.application_status) IN ('applied', 'screening', 'interview', 'final round', 'final_round', 'offer')")
+        elif application_status == "closed":
+            clauses.append("(j.is_closed = TRUE OR LOWER(j.application_status) IN ('rejected', 'withdrawn', 'no response', 'no_response', 'closed'))")
+        elif application_status == "new":
+            clauses.append("j.is_closed = FALSE AND (j.application_status IS NULL OR LOWER(j.application_status) IN ('unapplied', 'to apply'))")
+        elif application_status == "all":
+            pass
+        else:
+            clauses.append("j.is_closed = FALSE AND (j.application_status IS NULL OR LOWER(j.application_status) NOT IN ('rejected', 'withdrawn', 'no response', 'no_response', 'closed'))")
 
         if track_id and track_id != "all":
             clauses.append("m.best_track_id = %s")
@@ -519,7 +615,7 @@ class PostgresRepository(BaseStorageRepository):
             q = f"%{search.strip()}%"
             params.extend([q, q, q, q])
 
-        where_sql = " AND ".join(clauses)
+        where_sql = " AND ".join(clauses) if clauses else "TRUE"
         params.append(limit)
 
         query = f"""
@@ -536,6 +632,12 @@ class PostgresRepository(BaseStorageRepository):
             j.source,
             j.first_seen,
             j.last_seen,
+            j.is_closed,
+            COALESCE(j.application_status, 'unapplied') AS application_status,
+            j.applied_at,
+            j.notion_page_id,
+            j.notion_synced_at,
+            j.application_notes,
             COALESCE(m.best_track_id, 'general') AS best_track_id,
             COALESCE(m.best_track_name, 'General Tech') AS best_track_name,
             COALESCE(m.final_score, 0.0) AS final_score,
@@ -577,6 +679,12 @@ class PostgresRepository(BaseStorageRepository):
                         "deadline_at": r["deadline_at"].isoformat() if r["deadline_at"] else None,
                         "source": r["source"],
                         "first_seen": r["first_seen"].isoformat() if r["first_seen"] else None,
+                        "is_closed": bool(r["is_closed"]),
+                        "application_status": r["application_status"],
+                        "applied_at": r["applied_at"].isoformat() if r["applied_at"] else None,
+                        "notion_page_id": r["notion_page_id"],
+                        "notion_synced_at": r["notion_synced_at"].isoformat() if r["notion_synced_at"] else None,
+                        "application_notes": r["application_notes"],
                         "best_track_id": r["best_track_id"],
                         "best_track_name": r["best_track_name"],
                         "final_score": float(r["final_score"]),
@@ -592,7 +700,8 @@ class PostgresRepository(BaseStorageRepository):
                 cursor.execute(
                     """
                     SELECT 
-                        (SELECT COUNT(*) FROM jobs WHERE is_closed = FALSE) AS total_jobs,
+                        (SELECT COUNT(*) FROM jobs WHERE is_closed = FALSE AND (application_status IS NULL OR LOWER(application_status) IN ('unapplied', 'to apply'))) AS total_jobs,
+                        (SELECT COUNT(*) FROM jobs WHERE LOWER(application_status) IN ('applied', 'screening', 'interview', 'final round', 'final_round', 'offer')) AS applied_count,
                         (SELECT COUNT(*) FROM scored_matches WHERE is_match = TRUE) AS high_matches,
                         (SELECT COUNT(*) FROM scored_matches WHERE is_near_miss = TRUE) AS near_misses,
                         (SELECT COUNT(DISTINCT source) FROM jobs) AS active_sources,
@@ -605,9 +714,11 @@ class PostgresRepository(BaseStorageRepository):
                 row = cursor.fetchone()
                 return {
                     "total_jobs": int(row["total_jobs"] or 0),
+                    "applied_count": int(row["applied_count"] or 0),
                     "high_matches": int(row["high_matches"] or 0),
                     "near_misses": int(row["near_misses"] or 0),
                     "active_sources": int(row["active_sources"] or 0),
                     "employers_spotted": int(row["employers_spotted"] or 0),
                     "top10_avg_score": float(row["top10_avg_score"] or 0.0),
                 }
+

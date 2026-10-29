@@ -66,9 +66,16 @@ class Job(BaseModel):
     source: str = Field(..., description="Identifier of the ingestion source")
     raw_id: Optional[int] = Field(default=None, description="Foreign key to Bronze raw_jobs table")
     fingerprint: str = Field(default="", description="Deduplication key: sha256(company + title)")
+    id: Optional[int] = Field(default=None, description="Database primary key")
     first_seen: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     last_seen: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     is_closed: bool = Field(default=False, description="Marked true when listing disappears")
+    application_status: str = Field(default="unapplied", description="Application tracking status: unapplied, to_apply, applied, screening, interview, final_round, offer, rejected, no_response, withdrawn")
+    applied_at: Optional[datetime] = Field(default=None, description="Timestamp when applied")
+    notion_page_id: Optional[str] = Field(default=None, description="Notion page UUID in Job Applications database")
+    notion_synced_at: Optional[datetime] = Field(default=None, description="Timestamp of last bidirectional Notion sync")
+    application_notes: Optional[str] = Field(default=None, description="User notes or interview remarks")
+
 
     def model_post_init(self, __context: Any) -> None:
         """Automatically populate fingerprint if not provided."""

@@ -8,6 +8,7 @@ import logging
 import os
 from pathlib import Path
 from typing import Optional
+from pydantic import BaseModel
 
 from fastapi import FastAPI, Query, HTTPException
 from fastapi.responses import HTMLResponse, FileResponse
@@ -15,6 +16,7 @@ from fastapi.staticfiles import StaticFiles
 
 from jobradar.adapters.storage.factory import get_repository
 from jobradar.services.pipeline import JobRadarPipeline
+from jobradar.adapters.notion import NotionClient, sync_notion_with_repository
 
 logger = logging.getLogger(__name__)
 
@@ -44,9 +46,10 @@ async def get_jobs(
     min_score: Optional[float] = None,
     source: Optional[str] = None,
     search: Optional[str] = None,
+    status: Optional[str] = None,
     limit: int = 150,
 ):
-    """Retrieve ranked jobs with explainable scoring breakdowns."""
+    """Retrieve ranked jobs with explainable scoring breakdowns and application tracking status."""
     repo = get_repository()
     try:
         jobs = repo.get_dashboard_jobs(
@@ -54,11 +57,13 @@ async def get_jobs(
             min_score=min_score,
             source=source,
             search=search,
+            application_status=status,
             limit=limit,
         )
         return {"count": len(jobs), "jobs": jobs}
     finally:
         repo.close()
+
 
 
 @app.get("/api/stats")
@@ -168,4 +173,103 @@ async def evaluate_job_ai(job_id: int):
         return {"status": "generated", "ai_insight": breakdown["ai_insight"]}
     finally:
         repo.close()
+
+
+class JobStatusUpdateRequest(BaseModel):
+    status: str
+    notes: Optional[str] = None
+
+
+@app.post("/api/jobs/{job_id}/status")
+async def update_job_status(job_id: int, req: JobStatusUpdateRequest):
+    """Update job application status and synchronize with Notion."""
+    import asyncio
+    from jobradar.config import load_config
+
+    config = load_config()
+    repo = get_repository(config.database_url)
+    try:
+        job = repo.get_job_by_id(job_id)
+        if not job:
+            raise HTTPException(status_code=404, detail="Job not found.")
+
+        # Update locally
+        updated_job = repo.update_job_application_status(
+            job_id_or_fingerprint=job_id,
+            status=req.status,
+            notes=req.notes,
+        )
+        if not updated_job:
+            raise HTTPException(status_code=500, detail="Failed to update job status.")
+
+        notion_synced = False
+        notion = NotionClient(config.notion_api_key, config.notion_database_id)
+        if notion.is_configured():
+            try:
+                if updated_job.notion_page_id:
+                    success = await asyncio.to_thread(
+                        notion.update_application_page,
+                        page_id=updated_job.notion_page_id,
+                        status=req.status,
+                        notes=req.notes,
+                    )
+                    notion_synced = bool(success)
+                elif req.status.lower() != "unapplied":
+                    page_id = await asyncio.to_thread(
+                        notion.create_application_page,
+                        job=updated_job,
+                        status=req.status,
+                        notes=req.notes or f"Tracked via JobRadar Web Dashboard.",
+                    )
+                    if page_id:
+                        repo.update_job_application_status(
+                            job_id_or_fingerprint=job_id,
+                            status=req.status,
+                            notion_page_id=page_id,
+                        )
+                        updated_job.notion_page_id = page_id
+                        notion_synced = True
+            except Exception as e:
+                logger.warning("Failed to sync status update to Notion for job %d: %s", job_id, e)
+
+        return {
+            "success": True,
+            "notion_synced": notion_synced,
+            "job": {
+                "id": updated_job.id,
+                "title": updated_job.title,
+                "company": updated_job.company,
+                "application_status": updated_job.application_status,
+                "applied_at": updated_job.applied_at.isoformat() if updated_job.applied_at else None,
+                "notion_page_id": updated_job.notion_page_id,
+                "notion_synced": notion_synced,
+            },
+        }
+    finally:
+        repo.close()
+
+
+@app.post("/api/notion/sync")
+async def trigger_notion_sync():
+    """Trigger on-demand two-way sync with Notion Job Applications tracker."""
+    import asyncio
+    from jobradar.config import load_config
+
+    config = load_config()
+    notion = NotionClient(config.notion_api_key, config.notion_database_id)
+    if not notion.is_configured():
+        return {
+            "success": False,
+            "configured": False,
+            "message": "Notion API key or Database ID is not configured in .env",
+            "summary": {"notion_rows_scanned": 0, "synced_jobs": 0, "backfilled_links": 0},
+        }
+
+    repo = get_repository(config.database_url)
+    try:
+        summary = await asyncio.to_thread(sync_notion_with_repository, notion, repo)
+        return {"success": True, "configured": True, "summary": summary}
+    finally:
+        repo.close()
+
 

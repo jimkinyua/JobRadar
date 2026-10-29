@@ -65,21 +65,47 @@ def cmd_run(args: argparse.Namespace) -> int:
 
 
 def cmd_commands(args: argparse.Namespace) -> int:
-    """Poll Telegram updates and apply /add and /ignore commands."""
+    """Poll Telegram updates and apply /add, /ignore, /apply, and callback commands."""
+    from jobradar.adapters.notion import NotionClient
     config = load_config()
     repo = get_repository(config.database_url)
     telegram = TelegramClient(bot_token=config.telegram_bot_token, chat_id=config.telegram_chat_id)
+    notion = NotionClient(config.notion_api_key, config.notion_database_id)
 
-    print("\n🤖 Polling Telegram for /add and /ignore commands...")
-    actions = telegram.process_incoming_commands(repo)
+    print("\n🤖 Polling Telegram for incoming updates and callbacks...")
+    actions = telegram.process_incoming_commands(repo, notion_client=notion)
 
     if actions:
-        print(f"✅ Executed {len(actions)} command(s):")
+        print(f"✅ Executed {len(actions)} action(s):")
         for a in actions:
             print(f" • {a}")
     else:
         print("ℹ️ No new pending commands found.")
     return 0
+
+
+def cmd_sync_notion(args: argparse.Namespace) -> int:
+    """Trigger two-way sync between Notion and JobRadar."""
+    from jobradar.adapters.notion import NotionClient, sync_notion_with_repository
+    config = load_config()
+    notion = NotionClient(config.notion_api_key, config.notion_database_id)
+    if not notion.is_configured():
+        print("❌ Error: NOTION_API_KEY and NOTION_DATABASE_ID must be set in your .env file.")
+        return 1
+    repo = get_repository(config.database_url)
+    try:
+        print("\n🔄 Running bidirectional Notion synchronization...")
+        res = sync_notion_with_repository(notion, repo)
+        print(
+            f"✅ Sync complete:\n"
+            f" • Notion rows scanned: {res['notion_rows_scanned']}\n"
+            f" • Jobs updated: {res['synced_jobs']}\n"
+            f" • Links backfilled: {res['backfilled_links']}"
+        )
+        return 0
+    finally:
+        repo.close()
+
 
 
 def cmd_test_telegram(args: argparse.Namespace) -> int:
@@ -271,12 +297,17 @@ def main() -> int:
     p_exp.add_argument("--output", default="matches.csv", help="Path to output CSV file")
     p_exp.set_defaults(func=cmd_export_csv)
 
+    # sync-notion
+    p_notion = subparsers.add_parser("sync-notion", help="Run bidirectional synchronization with Notion Job Applications")
+    p_notion.set_defaults(func=cmd_sync_notion)
+
     # serve
     p_srv = subparsers.add_parser("serve", help="Launch live interactive web UI dashboard")
     p_srv.add_argument("--host", default="0.0.0.0", help="Host interface to bind (default: 0.0.0.0)")
     p_srv.add_argument("--port", type=int, default=8000, help="Port to bind (default: 8000)")
     p_srv.add_argument("--reload", action="store_true", help="Enable auto-reload for development")
     p_srv.set_defaults(func=cmd_serve)
+
 
     args = parser.parse_args()
     return args.func(args)

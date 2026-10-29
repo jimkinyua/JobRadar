@@ -103,12 +103,35 @@ class BaseStorageRepository(ABC):
         pass
 
     @abstractmethod
+    def get_job_by_id(self, job_id: int) -> Optional[Job]:
+        """Fetch a job by its database ID."""
+        pass
+
+    @abstractmethod
+    def get_job_by_url(self, url: str) -> Optional[Job]:
+        """Fetch a job by canonical URL."""
+        pass
+
+    @abstractmethod
+    def update_job_application_status(
+        self,
+        job_id_or_fingerprint: int | str,
+        status: str,
+        applied_at: Optional[datetime] = None,
+        notion_page_id: Optional[str] = None,
+        notes: Optional[str] = None,
+    ) -> Optional[Job]:
+        """Update a job's application tracking status and Notion metadata."""
+        pass
+
+    @abstractmethod
     def get_dashboard_jobs(
         self,
         track_id: Optional[str] = None,
         min_score: Optional[float] = None,
         source: Optional[str] = None,
         search: Optional[str] = None,
+        application_status: Optional[str] = None,
         limit: int = 200,
     ) -> list[dict]:
         """Fetch ranked jobs with their scoring breakdowns for web presentation."""
@@ -118,3 +141,4 @@ class BaseStorageRepository(ABC):
     def get_dashboard_stats(self) -> dict:
         """Fetch aggregate summary metrics for the web dashboard."""
         pass
+

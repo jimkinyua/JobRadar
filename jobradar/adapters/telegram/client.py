@@ -42,19 +42,26 @@ class TelegramClient:
         """Check if both token and chat_id are present."""
         return bool(self.bot_token and self.chat_id)
 
-    def send_message(self, text: str, parse_mode: str = "HTML") -> bool:
-        """Send an HTML-formatted message to the authorized chat ID."""
+    def send_message(
+        self,
+        text: str,
+        parse_mode: str = "HTML",
+        reply_markup: Optional[dict[str, Any]] = None,
+    ) -> bool:
+        """Send an HTML-formatted message to the authorized chat ID with optional inline buttons."""
         if not self.is_configured():
             logger.info("Telegram notification skipped: Bot token or Chat ID is not configured.")
             return False
 
         url = f"{self.base_url}/sendMessage"
-        payload = {
+        payload: dict[str, Any] = {
             "chat_id": self.chat_id,
             "text": text,
             "parse_mode": parse_mode,
             "disable_web_page_preview": False,
         }
+        if reply_markup:
+            payload["reply_markup"] = reply_markup
 
         try:
             resp = self.session.post(url, json=payload, timeout=15.0)
@@ -67,10 +74,36 @@ class TelegramClient:
             logger.error("Exception while sending Telegram message: %s", e)
             return False
 
+    def answer_callback_query(self, callback_query_id: str, text: Optional[str] = None) -> bool:
+        """Acknowledge Telegram callback query to dismiss loading animation."""
+        if not self.is_configured():
+            return False
+        url = f"{self.base_url}/answerCallbackQuery"
+        payload: dict[str, Any] = {"callback_query_id": callback_query_id}
+        if text:
+            payload["text"] = text
+        try:
+            resp = self.session.post(url, json=payload, timeout=10.0)
+            return resp.status_code == 200
+        except Exception:
+            return False
+
     def send_job_alert(self, scored_job: ScoredJob) -> bool:
-        """Send a single job alert."""
+        """Send a single job alert with interactive application tracking buttons."""
         text = format_job_alert(scored_job)
-        return self.send_message(text)
+        job_id = scored_job.job.id or scored_job.job.fingerprint
+
+        inline_keyboard = [
+            [
+                {"text": "✅ Mark Applied", "callback_data": f"app:applied:{job_id}"},
+                {"text": "🚫 Not Interested", "callback_data": f"app:withdrawn:{job_id}"},
+            ]
+        ]
+        if scored_job.job.url:
+            inline_keyboard.append([{"text": "🌐 Open Job Link", "url": scored_job.job.url}])
+
+        reply_markup = {"inline_keyboard": inline_keyboard}
+        return self.send_message(text, reply_markup=reply_markup)
 
     def send_health_alert(self, unhealthy_sources: list[dict[str, Any]]) -> bool:
         """Send consolidated source health alert."""
@@ -121,10 +154,14 @@ class TelegramClient:
         self,
         storage_repo: BaseStorageRepository,
         employers_yaml_path: str | Path = "config/employers.yaml",
+        notion_client: Optional[Any] = None,
     ) -> list[str]:
         """
-        Poll new messages and execute /add <id> and /ignore <id> commands.
-        STRICT SECURITY: Rejects and ignores commands from any chat ID other than self.chat_id.
+        Poll new messages and callback queries.
+        Supports:
+          - Inline buttons: Mark Applied and Not Interested (pushes to Notion)
+          - Slash commands: /add <id>, /ignore <id>, /apply <id>, /status <id>, /sync
+        STRICT SECURITY: Rejects interactions from unauthorized chat IDs.
         """
         if not self.is_configured():
             logger.info("Telegram commands skipped: Bot credentials not configured.")
@@ -142,11 +179,32 @@ class TelegramClient:
             if update_id > highest_update_id:
                 highest_update_id = update_id
 
+            # 1. Handle Inline Keyboard Callbacks
+            callback_query = update.get("callback_query")
+            if callback_query:
+                cb_sender = callback_query.get("from", {})
+                cb_sender_id = str(cb_sender.get("id", "")).strip()
+                cb_chat = callback_query.get("message", {}).get("chat", {})
+                cb_chat_id = str(cb_chat.get("id", "")).strip()
+
+                if cb_chat_id != self.chat_id and cb_sender_id != self.chat_id:
+                    logger.warning("SECURITY: Rejected callback query from unauthorized ID '%s'", cb_sender_id)
+                    continue
+
+                cb_data = callback_query.get("data", "")
+                cb_id = callback_query.get("id")
+                if cb_data.startswith("app:"):
+                    action_msg = self._handle_app_status_callback(cb_data, storage_repo, notion_client)
+                    self.answer_callback_query(cb_id, text=action_msg[:100])
+                    self.send_message(action_msg)
+                    executed_actions.append(action_msg)
+                continue
+
+            # 2. Handle Text Messages and Commands
             message = update.get("message") or update.get("channel_post")
             if not message:
                 continue
 
-            # Verify sender authorization
             sender_chat = message.get("chat", {})
             sender_id = str(sender_chat.get("id", "")).strip()
 
@@ -183,9 +241,34 @@ class TelegramClient:
                 except ValueError:
                     self.send_message("❌ Invalid format. Use: <code>/ignore &lt;id&gt;</code>")
 
+            elif cmd == "/apply" and len(parts) >= 2:
+                target_id = parts[1].strip()
+                action_msg = self._handle_apply_command(target_id, storage_repo, notion_client)
+                executed_actions.append(action_msg)
+                self.send_message(action_msg)
+
+            elif cmd == "/sync":
+                if notion_client and notion_client.is_configured():
+                    from jobradar.adapters.notion.sync import sync_notion_with_repository
+                    res = sync_notion_with_repository(notion_client, storage_repo)
+                    msg = (
+                        f"🔄 <b>Notion Sync Completed</b>\n"
+                        f"• Notion rows scanned: {res['notion_rows_scanned']}\n"
+                        f"• Local jobs updated: {res['synced_jobs']}\n"
+                        f"• Links backfilled: {res['backfilled_links']}"
+                    )
+                else:
+                    msg = "⚠️ Notion integration is not configured."
+                self.send_message(msg)
+                executed_actions.append(msg)
+
             elif cmd == "/start":
                 self.send_message(
-                    "👋 <b>Job-Radar Bot Online</b>\nUse <code>/add &lt;id&gt;</code> or <code>/ignore &lt;id&gt;</code> to manage discovered employers."
+                    "👋 <b>Job-Radar Bot Online</b>\n"
+                    "• Tap inline buttons on alerts to mark jobs as Applied or Withdrawn\n"
+                    "• <code>/apply &lt;id&gt;</code> - Mark a job applied and sync to Notion\n"
+                    "• <code>/sync</code> - Trigger immediate two-way Notion sync\n"
+                    "• <code>/add &lt;id&gt;</code> - Approve discovered employer ATS"
                 )
 
         # Acknowledge processed updates
@@ -193,6 +276,73 @@ class TelegramClient:
             self.get_updates(offset=highest_update_id + 1)
 
         return executed_actions
+
+
+    def _handle_app_status_callback(
+        self,
+        callback_data: str,
+        repo: BaseStorageRepository,
+        notion_client: Optional[Any],
+    ) -> str:
+        """
+        Handle inline callback query data e.g. 'app:applied:<id>' or 'app:withdrawn:<id>'.
+        Updates local JobRadar application_status and synchronizes directly with Notion.
+        """
+        parts = callback_data.split(":")
+        if len(parts) < 3:
+            return "❌ Invalid callback payload."
+
+        action = parts[1].lower()
+        job_identifier = parts[2]
+        status_label = "Applied" if action == "applied" else "Withdrawn"
+
+        # Update local database
+        updated_job = repo.update_job_application_status(
+            job_id_or_fingerprint=job_identifier,
+            status=status_label,
+        )
+        if not updated_job:
+            return f"❌ Job with identifier '{job_identifier}' not found."
+
+        notion_status_msg = ""
+        if notion_client and notion_client.is_configured():
+            try:
+                if updated_job.notion_page_id:
+                    notion_client.update_application_page(
+                        page_id=updated_job.notion_page_id,
+                        status=status_label,
+                    )
+                    notion_status_msg = " and updated in Notion"
+                else:
+                    page_id = notion_client.create_application_page(
+                        job=updated_job,
+                        status=status_label,
+                        notes="Tracked via JobRadar Telegram Alert.",
+                    )
+                    if page_id:
+                        repo.update_job_application_status(
+                            job_id_or_fingerprint=updated_job.fingerprint,
+                            status=status_label,
+                            notion_page_id=page_id,
+                        )
+                        notion_status_msg = " and created in Notion"
+            except Exception as e:
+                logger.error("Failed to push status to Notion from Telegram callback: %s", e)
+                notion_status_msg = " (Notion push pending sync)"
+
+        return (
+            f"✅ Marked <b>{html.escape(updated_job.title)}</b> at "
+            f"<b>{html.escape(updated_job.company)}</b> as <b>{status_label}</b>{notion_status_msg}!"
+        )
+
+    def _handle_apply_command(
+        self,
+        target_id: str,
+        repo: BaseStorageRepository,
+        notion_client: Optional[Any],
+    ) -> str:
+        return self._handle_app_status_callback(f"app:applied:{target_id}", repo, notion_client)
+
 
     def _handle_add_employer(
         self,

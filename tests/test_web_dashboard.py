@@ -37,6 +37,7 @@ async def test_get_jobs_api_endpoint():
             min_score=9.0,
             source=None,
             search=None,
+            application_status=None,
             limit=150,
         )
 
